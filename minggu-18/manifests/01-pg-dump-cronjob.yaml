@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-backup-secrets
+  namespace: production
+type: Opaque
+stringData:
+  PGHOST: postgres-primary.production.svc.cluster.local
+  PGUSER: backup_user
+  # Ganti dengan password dari Secret Manager (Vault/Sealed Secrets).
+  PGPASSWORD: "P@ssw0rd-Backup-S3cur3!"
+  S3_BUCKET: "s3://db-backups-cluster-01/"
+  S3_ACCESS_KEY: "AKIA-BACKUP-USER-2024"
+  S3_SECRET_KEY: "backup-secret-key-rotation-90d"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-daily-dump
+  namespace: production
+  labels:
+    app: postgres-backup
+    tier: database
+spec:
+  # Setiap hari jam 02:00 WIB (Asia/Jakarta = UTC+7, jadi cron UTC = 19:00).
+  schedule: "0 19 * * *"
+  timeZone: "Etc/UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 7200   # Max 2 jam
+      template:
+        metadata:
+          labels:
+            app: postgres-backup
+        spec:
+          serviceAccountName: backup-pod-sa
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: pg-dump
+            image: postgres:15-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+              echo "Backup started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              FILENAME="prod-db-$(date -u +%Y%m%d-%H%M%S).sql.gz"
+              pg_dump -Fc -d $PGDATABASE | gzip > /tmp/$FILENAME
+              echo "Compressing done. Size: $(ls -lh /tmp/$FILENAME | awk '{print $5}')"
+              echo "Uploading to S3..."
+              aws s3 cp /tmp/$FILENAME $S3_BUCKET$FILENAME --storage-class STANDARD_IA
+              # Cleanup lokal
+              rm -f /tmp/$FILENAME
+              echo "Backup complete: $S3_BUCKET$FILENAME"
+            env:
+            - name: PGDATABASE
+              value: "production_db"
+            envFrom:
+            - secretRef:
+                name: postgres-backup-secrets
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 1000m
+                memory: 1Gi
+            volumeMounts:
+            - name: aws-credentials
+              mountPath: /root/.aws
+              readOnly: true
+          volumes:
+          - name: aws-credentials
+            secret:
+              secretName: aws-credentials-for-backup

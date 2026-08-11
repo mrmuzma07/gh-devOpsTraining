@@ -1,0 +1,184 @@
+# Konfigurasi PgBackRest sebagai ConfigMap (akan di-mount ke Postgres Pod)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgbackrest-config
+  namespace: production
+data:
+  pgbackrest.conf: |
+    [global]
+    # Lokasi repository utama di S3 (region us-east-1)
+    repo1-type=s3
+    repo1-s3-bucket=pgsql-backups-cluster01
+    repo1-s3-region=us-east-1
+    repo1-s3-endpoint=s3.us-east-1.amazonaws.com
+    repo1-path=/pgbackrest
+    repo1-cipher-type=aes-256-cbc    # Enkripsi backup at rest
+    repo1-retention-full=4           # Simpan 4 full backup terakhir
+    repo1-retention-diff=2           # Simpan 2 differential terakhir
+    repo1-retention-archive=14       # Simpan WAL archive 14 hari
+    # Repository kedua di region berbeda (DR offsite)
+    repo2-type=s3
+    repo2-s3-bucket=pgsql-backups-cluster01-dr
+    repo2-s3-region=ap-southeast-3
+    repo2-s3-endpoint=s3.ap-southeast-3.amazonaws.com
+    repo2-path=/pgbackrest-dr
+    repo2-cipher-type=aes-256-cbc
+    repo2-retention-full=4
+    repo2-retention-archive=14
+    
+    [stanza:production_db]
+    pg1-path=/var/lib/postgresql/data
+    pg1-host=postgres-primary
+    pg1-host-port=5432
+    pg1-database=production_db
+    pg1-user=backup_user
+    # Backup otomatis akan dieksekusi oleh pgbackrest sebagai agent
+    # WAL akan di-archive ke kedua repo secara bersamaan
+---
+# StatefulSet Postgres dengan PgBackRest sidecar
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pgbackrest-s3-credentials
+  namespace: production
+type: Opaque
+stringData:
+  AWS_ACCESS_KEY_ID: "AKIA-PGBREST-PROD-2026"
+  AWS_SECRET_ACCESS_KEY: "rotation-required-90d-r3str"
+  PGBACKREST_REPO1_S3_KEY_SECRET: "rotation-required-90d-r3str"
+  PGBACKREST_REPO2_S3_KEY_SECRET: "rotation-required-90d-r3str"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-primary
+  namespace: production
+spec:
+  serviceName: postgres-primary
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-primary
+  template:
+    metadata:
+      labels:
+        app: postgres-primary
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_DB
+          value: production_db
+        - name: POSTGRES_USER
+          value: admin
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        - name: S3_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: pgbackrest-s3-credentials
+              key: AWS_ACCESS_KEY_ID
+        - name: S3_KEY_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: pgbackrest-s3-credentials
+              key: AWS_SECRET_ACCESS_KEY
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+        - name: pgbackrest-conf
+          mountPath: /etc/pgbackrest/pgbackrest.conf
+          subPath: pgbackrest.conf
+      - name: pgbackrest
+        image: pgbackrest/pgbackrest:latest
+        command: ["/usr/bin/pgbackrest", "server"]
+        env:
+        - name: PGBACKREST_REPO1_S3_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: pgbackrest-s3-credentials
+              key: AWS_ACCESS_KEY_ID
+        - name: PGBACKREST_REPO1_S3_KEY_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: pgbackrest-s3-credentials
+              key: PGBACKREST_REPO1_S3_KEY_SECRET
+        - name: PGBACKREST_REPO2_S3_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: pgbackrest-s3-credentials
+              key: AWS_ACCESS_KEY_ID
+        - name: PGBACKREST_REPO2_S3_KEY_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: pgbackrest-s3-credentials
+              key: PGBACKREST_REPO2_S3_KEY_SECRET
+        ports:
+        - containerPort: 8432
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+          readOnly: false
+        - name: pgbackrest-conf
+          mountPath: /etc/pgbackrest.conf
+          subPath: pgbackrest.conf
+      volumes:
+      - name: pgbackrest-conf
+        configMap:
+          name: pgbackrest-config
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 50Gi
+---
+# CronJob: Full backup mingguan + Differential harian
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pgbackrest-full-weekly
+  namespace: production
+spec:
+  schedule: "0 18 * * 0"   # Minggu jam 18:00 UTC (01:00 WIB Senin)
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: pgbackrest
+            image: pgbackrest/pgbackrest:latest
+            command:
+            - /usr/bin/pgbackrest
+            - --stanza=production_db
+            - --repo1-retention-full=4
+            - backup
+            - --type=full
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pgbackrest-diff-daily
+  namespace: production
+spec:
+  schedule: "0 18 * * 1-6"   # Senin-Sabtu jam 18:00 UTC
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: pgbackrest
+            image: pgbackrest/pgbackrest:latest
+            command:
+            - /usr/bin/pgbackrest
+            - --stanza=production_db
+            - backup
+            - --type=diff
+          restartPolicy: OnFailure

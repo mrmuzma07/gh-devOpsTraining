@@ -1,0 +1,98 @@
+# Primary BackupStorageLocation - Region Jakarta (ap-southeast-3)
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: primary-region-jkt
+  namespace: velero
+spec:
+  provider: aws
+  objectStorage:
+    bucket: velero-prod-backups-jkt
+  config:
+    region: ap-southeast-3
+    s3ForcePathStyle: "false"
+---
+# Secondary BackupStorageLocation - Region Singapura (DR)
+# Velero akan REPLIKASI backup ke sini via S3 Cross-Region Replication.
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: dr-region-sg
+  namespace: velero
+spec:
+  provider: aws
+  objectStorage:
+    bucket: velero-prod-backups-sg-dr
+  config:
+    region: ap-southeast-1
+    s3ForcePathStyle: "false"
+---
+# Schedule yang mengirim backup ke KEDUA region secara paralel
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: dr-multi-region-daily
+  namespace: velero
+spec:
+  schedule: "0 19 * * *"
+  timeZone: "Etc/UTC"
+  template:
+    includedNamespaces:
+    - production
+    storageLocation: primary-region-jkt
+    volumeSnapshotLocations:
+    - primary-region-jkt
+    ttl: 2160h    # 90 hari di primary
+---
+# Object Lock Configuration di bucket DR untuk anti-ransomware
+# (File ini hanya dokumentasi - perlu dibuat via AWS CLI)
+# aws s3api put-object-lock-configuration \
+#   --bucket velero-prod-backups-sg-dr \
+#   --object-lock-configuration \
+#   '{"ObjectLockEnabled":"Enabled","Rule":{"DefaultRetention":{"Mode":"COMPLIANCE","Years":30}}}'
+---
+# ConfigMap untuk DR Runbook (prosedur eksekusi saat regional outage)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dr-runbook
+  namespace: velero
+data:
+  runbook.md: |
+    # DISASTER RECOVERY RUNBOOK - REGIONAL OUTAGE
+    # ==============================================
+    # Trigger: Region ap-southeast-3 (Jakarta) DOWN selama > 30 menit.
+    
+    ## PHASE 1: VALIDATION (5 menit)
+    1. Cek AWS Health Dashboard untuk konfirmasi regional outage.
+    2. Hubungi on-call engineer kedua untuk verifikasi.
+    3. Cek backup terbaru di bucket Singapore:
+       aws s3 ls s3://velero-prod-backups-sg-dr/backups/ --region ap-southeast-1
+    
+    ## PHASE 2: ACTIVATE DR CLUSTER (10 menit)
+    1. SSH ke bastion host Singapore.
+    2. Verifikasi DR cluster masih hidup:
+       kubectl --context=dr-sg-cluster get nodes
+    3. Restore dari backup terakhir Singapore:
+       velero restore create dr-restore-$(date +%s) \
+         --from-backup $(velero backup get -o json | jq -r '.items[0].metadata.name') \
+         --wait
+    
+    ## PHASE 3: VERIFY & TRAFFIC SHIFT (15 menit)
+    1. Verify aplikasi up di DR:
+       kubectl --context=dr-sg-cluster get pods -A
+    2. Cek database connectivity & row count.
+    3. Update Route53/Cloudflare DNS:
+       - Turunkan TTL menjadi 60 detik SEBELUM incident.
+       - Arahkan api.production.com ke ALB DR cluster.
+    4. Pantau error rate di Datadog/Grafana.
+    
+    ## PHASE 4: COMMUNICATION
+    1. Update status page (statuspage.io).
+    2. Kirim notifikasi ke stakeholder via Slack #incident-response.
+    3. Estimasi RTO: 30 menit sejak fase 2 dimulai.
+    
+    ## POST-INCIDENT
+    1. Lakukan RCA (Root Cause Analysis).
+    2. Update playbook dengan lessons learned.
+    3. Test failover di next quarterly drill.

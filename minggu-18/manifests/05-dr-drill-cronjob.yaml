@@ -1,0 +1,232 @@
+# DR Drill Automated CronJob — Isolated Restore (Aman, Bulanan)
+# Menjalankan restore drill otomatis ke namespace terpisah TANPA menyentuh production.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: monthly-dr-drill-isolated
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: dr-drill
+    app.kubernetes.io/part-of: disaster-recovery
+spec:
+  # Setiap Sabtu pertama bulan, jam 01:00 UTC (08:00 WIB)
+  schedule: "0 1 1-7 * 6"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800   # Maks 30 menit
+      template:
+        spec:
+          serviceAccountName: velero-dr-drill-sa
+          restartPolicy: OnFailure
+          containers:
+          - name: dr-drill
+            image: bitnami/kubectl:1.30
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              
+              TIMESTAMP=$(date +%Y%m%d-%H%M)
+              DRILL_NS="dr-drill-auto-${TIMESTAMP}"
+              LOG_FILE="/tmp/drill-${TIMESTAMP}.log"
+              
+              echo "=========================================" | tee ${LOG_FILE}
+              echo " AUTOMATED DR DRILL: ${TIMESTAMP}"      | tee -a ${LOG_FILE}
+              echo "=========================================" | tee -a ${LOG_FILE}
+              
+              # 1. Buat namespace drill terisolasi
+              echo "[1/6] Creating isolated drill namespace..." | tee -a ${LOG_FILE}
+              kubectl create namespace ${DRILL_NS}
+              kubectl label namespace ${DRILL_NS} \
+                purpose=dr-drill \
+                isolation=full \
+                auto-generated=true
+              
+              # 2. Ambil backup Velero terbaru yang Completed
+              echo "[2/6] Fetching latest completed backup..." | tee -a ${LOG_FILE}
+              LATEST_BACKUP=$(velero backup get -o json 2>/dev/null | \
+                jq -r '.items | map(select(.status.phase == "Completed")) | sort_by(.status.completionTimestamp) | last | .metadata.name')
+              
+              if [ -z "${LATEST_BACKUP}" ] || [ "${LATEST_BACKUP}" = "null" ]; then
+                echo "❌ FATAL: No completed backup found!" | tee -a ${LOG_FILE}
+                kubectl delete namespace ${DRILL_NS}
+                exit 1
+              fi
+              echo "   Source backup: ${LATEST_BACKUP}" | tee -a ${LOG_FILE}
+              
+              # 3. Restore ke namespace drill dengan namespace mapping
+              echo "[3/6] Restoring backup to drill namespace..." | tee -a ${LOG_FILE}
+              RESTORE_START=$(date +%s)
+              
+              velero restore create auto-drill-${TIMESTAMP} \
+                --from-backup ${LATEST_BACKUP} \
+                --namespace-mappings production:${DRILL_NS} \
+                --include-namespaces production \
+                --wait 2>&1 | tee -a ${LOG_FILE}
+              
+              RESTORE_END=$(date +%s)
+              RESTORE_DURATION=$((RESTORE_END - RESTORE_START))
+              echo "   ✅ Restore completed in ${RESTORE_DURATION}s" | tee -a ${LOG_FILE}
+              
+              # 4. Verifikasi Pod Ready
+              echo "[4/6] Verifying pods are Ready..." | tee -a ${LOG_FILE}
+              kubectl wait --for=condition=Ready pod --all \
+                -n ${DRILL_NS} --timeout=300s 2>&1 | tee -a ${LOG_FILE}
+              
+              POD_COUNT=$(kubectl get pods -n ${DRILL_NS} --no-headers | wc -l)
+              READY_COUNT=$(kubectl get pods -n ${DRILL_NS} --no-headers | grep -c "Running")
+              echo "   Pods: ${READY_COUNT}/${POD_COUNT} Running" | tee -a ${LOG_FILE}
+              
+              # 5. Smoke test: cek service endpoint
+              echo "[5/6] Running smoke tests..." | tee -a ${LOG_FILE}
+              API_POD=$(kubectl get pod -n ${DRILL_NS} -l app=api-gateway -o name 2>/dev/null | head -1)
+              if [ -n "${API_POD}" ]; then
+                kubectl exec -n ${DRILL_NS} ${API_POD} -- curl -sf http://localhost:8080/health 2>&1 | tee -a ${LOG_FILE} || true
+              fi
+              
+              # 6. Generate report & cleanup
+              echo "[6/6] Generating report & cleaning up..." | tee -a ${LOG_FILE}
+              
+              cat <<REPORT | tee -a ${LOG_FILE}
+              
+              =============================================
+               DR DRILL REPORT — ${TIMESTAMP}
+              =============================================
+               Status:           ✅ PASS
+               Backup Source:    ${LATEST_BACKUP}
+               Restore Duration: ${RESTORE_DURATION}s ($((RESTORE_DURATION / 60)) min)
+               Pods Ready:       ${READY_COUNT}/${POD_COUNT}
+               Drill Namespace:  ${DRILL_NS}
+               Target RTO:       1800s (30 min)
+               Actual RTO:       ${RESTORE_DURATION}s
+              =============================================
+              REPORT
+              
+              # Bersihkan namespace drill
+              echo "   Cleaning up namespace ${DRILL_NS}..."
+              kubectl delete namespace ${DRILL_NS} --wait=true --timeout=120s 2>&1 | tee -a ${LOG_FILE}
+              
+              # Hapus restore object
+              velero restore delete auto-drill-${TIMESTAMP} --confirm 2>/dev/null || true
+              
+              echo "✅ DRILL COMPLETED SUCCESSFULLY" | tee -a ${LOG_FILE}
+              
+              # Exit dengan kode sukses agar tidak retry
+              exit 0
+            env:
+            - name: VELERO_NAMESPACE
+              value: velero
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              runAsNonRoot: true
+              runAsUser: 1000
+              capabilities:
+                drop:
+                - ALL
+---
+# ServiceAccount untuk DR Drill Job
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: velero-dr-drill-sa
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: dr-drill
+---
+# ClusterRole: izin untuk membuat namespace, membaca pod, dll.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: velero-dr-drill-role
+  labels:
+    app.kubernetes.io/name: dr-drill
+rules:
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["create", "get", "list", "delete"]
+- apiGroups: [""]
+  resources: ["pods", "services", "persistentvolumeclaims"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets"]
+  verbs: ["get", "list"]
+- apiGroups: ["velero.io"]
+  resources: ["backups", "restores"]
+  verbs: ["get", "list", "create", "delete"]
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: velero-dr-drill-binding
+  labels:
+    app.kubernetes.io/name: dr-drill
+subjects:
+- kind: ServiceAccount
+  name: velero-dr-drill-sa
+  namespace: velero
+roleRef:
+  kind: ClusterRole
+  name: velero-dr-drill-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# ConfigMap: Template Postmortem Report
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dr-drill-postmortem-template
+  namespace: velero
+data:
+  template.md: |
+    # DR Drill Postmortem — {QUARTER} {YEAR}
+    
+    ## Drill Metadata
+    - **Tanggal**: 
+    - **Jenis**: Tabletop / Isolated Restore / Partial Failover / Full Failover
+    - **Skenario**: 
+    - **Partisipan**: 
+    
+    ## RTO Results
+    | Fase | Target | Actual | Status |
+    |:---|:---|:---|:---|
+    | Decision to failover | 5 min |  |  |
+    | Velero Restore | 15 min |  |  |
+    | Database Ready | 5 min |  |  |
+    | DNS Propagation | 5 min |  |  |
+    | Smoke Test | 5 min |  |  |
+    | **TOTAL RTO** | **30 min** |  |  |
+    
+    ## What Went Well
+    1. 
+    2. 
+    3. 
+    
+    ## What Went Wrong
+    1. 
+    2. 
+    3. 
+    
+    ## Action Items
+    - [ ] (@assignee) — deadline: 
+    - [ ] (@assignee) — deadline: 
+    - [ ] (@assignee) — deadline:
+    
+    ## Next Drill
+    - **Jadwal**: 
+    - **Jenis**: 

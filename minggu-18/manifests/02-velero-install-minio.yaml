@@ -1,0 +1,118 @@
+# Velero Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: velero
+  labels:
+    app.kubernetes.io/name: velero
+---
+# Konfigurasi MinIO (S3-compatible) sebagai Backup Storage
+# Gunakan file ini untuk menjalankan MinIO via docker-compose lokal:
+#
+# docker run -d --name minio \
+#   -p 9000:9000 -p 9001:9001 \
+#   -e MINIO_ROOT_USER=minioadmin \
+#   -e MINIO_ROOT_PASSWORD=minioadmin \
+#   quay.io/minio/minio server /data --console-address ":9001"
+---
+# Velero Installation - versi ringkas (gunakan Helm untuk production)
+# Untuk instalasi lengkap:
+#   helm repo add vmware-tanzu https://vmware-tanzu.github.io/helm-charts
+#   helm install velero vmware-tanzu/velero \
+#     --namespace velero \
+#     --set configuration.backupStorageLocation[0].name=default \
+#     --set configuration.backupStorageLocation[0].provider=aws \
+#     --set configuration.backupStorageLocation[0].bucket=velero-backups \
+#     --set configuration.backupStorageLocation[0].config.region=minio \
+#     --set configuration.backupStorageLocation[0].config.s3Url=http://minio.minio.svc.cluster.local:9000 \
+#     --set credentials.existingSecret=velero-credentials
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: velero-credentials
+  namespace: velero
+type: Opaque
+stringData:
+  cloud: |
+    [default]
+    aws_access_key_id = minioadmin
+    aws_secret_access_key = minioadmin
+---
+# BackupStorageLocation: Cluster -> MinIO
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: default
+  namespace: velero
+spec:
+  provider: aws
+  objectStorage:
+    bucket: velero-backups
+  config:
+    region: minio
+    s3ForcePathStyle: "true"
+    s3Url: http://minio.minio.svc.cluster.local:9000
+---
+# VolumeSnapshotLocation: Snapshot PVC ke CSI Driver
+apiVersion: velero.io/v1
+kind: VolumeSnapshotLocation
+metadata:
+  name: default
+  namespace: velero
+spec:
+  provider: aws
+  config:
+    region: minio
+---
+# Schedule: Backup harian jam 02:00 WIB (UTC 19:00)
+# Retention: 30 hari (otomatis hapus backup lama)
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-cluster-backup
+  namespace: velero
+spec:
+  schedule: "0 19 * * *"
+  timeZone: "Etc/UTC"
+  template:
+    includedNamespaces:
+    - production
+    - staging
+    excludedNamespaces:
+    - kube-system
+    - velero
+    storageLocation: default
+    volumeSnapshotLocations:
+    - default
+    ttl: 720h    # 30 hari retention
+---
+# Schedule: Backup Mingguan (Full backup semua namespace)
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: weekly-full-backup
+  namespace: velero
+spec:
+  schedule: "0 17 * * 0"   # Setiap Minggu jam 17:00 UTC
+  template:
+    includedNamespaces:
+    - "*"
+    storageLocation: default
+    volumeSnapshotLocations:
+    - default
+    ttl: 2160h    # 90 hari retention
+---
+# Contoh Backup On-Demand (jalankan manual sebelum deploy besar)
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: manual-pre-upgrade-2026-08-11
+  namespace: velero
+spec:
+  includedNamespaces:
+  - production
+  storageLocation: default
+  volumeSnapshotLocations:
+  - default
+  ttl: 168h     # Simpan 7 hari untuk rollback cepat
