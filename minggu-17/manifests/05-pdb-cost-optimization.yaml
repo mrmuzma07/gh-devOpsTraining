@@ -1,0 +1,88 @@
+---
+# PDB untuk Deployment kritikal (Payment)
+# Menjamin minimal SELALU ada 2 Pod yang hidup saat ada operasi voluntary disruption
+# (node drain, node upgrade, cluster autoscaler scale-down, dll.).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-pdb
+  namespace: production
+spec:
+  # Bisa pilih salah satu: minAvailable ATAU maxUnavailable
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: payment
+---
+# PDB Long-running Batch Processor (anti-thrash)
+# Hanya izinkan 1 Pod yang boleh mati sekaligus saat drain.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: batch-worker-pdb
+  namespace: production
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: batch-worker
+---
+# PDB Absolute Minimum (hanya 1 Pod untuk cache layer)
+# TIDAK BOLEH ada Pod yang mati saat disruption.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cache-pdb
+  namespace: production
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: redis-cache
+---
+# HPA dengan paused: true untuk cost-saving saat weekend
+# Tidak melakukan scale up otomatis, hanya turun sampai minReplicas.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: payment-hpa-cost-saver
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: payment
+  minReplicas: 1     # Weekend minimum: 1 Pod
+  maxReplicas: 20    # Weekday max: 20 Pod
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+---
+# CronJob: Matikan HPA di hari Sabtu/Minggu (cost-saving untuk dev environment)
+# CronJob ini akan patch annotation minReplicas=1 setiap Sabtu pagi.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: weekend-cost-saver
+  namespace: production
+spec:
+  schedule: "0 0 * * 6"  # Setiap hari Sabtu jam 00:00
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: hpa-patcher
+          containers:
+          - name: kubectl-patch
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              kubectl patch hpa payment-hpa-cost-saver -n production \
+                --type merge -p '{"spec":{"minReplicas":1,"maxReplicas":2}}'
+          restartPolicy: OnFailure

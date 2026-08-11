@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-hungry-app
+  namespace: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hungry-app
+  template:
+    metadata:
+      labels:
+        app: hungry-app
+    spec:
+      containers:
+      - name: app
+        image: nginxinc/nginx-unprivileged:alpine
+        resources:
+          # Under-provisioning: requests terlalu kecil, akan menyebabkan OOMKill.
+          requests:
+            cpu: 50m
+            memory: 64Mi
+---
+# VPA Recommender Mode: Hanya menganalisis & merekomendasikan
+# tanpa mengubah Pod secara otomatis (aman untuk produksi).
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: hungry-app-vpa
+  namespace: production
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: resource-hungry-app
+  updatePolicy:
+    updateMode: "Off"    # "Off" = hanya recommend. "Auto" = apply otomatis.
+  resourcePolicy:
+    containerPolicies:
+    - containerName: app
+      minAllowed:
+        cpu: 50m
+        memory: 64Mi
+      maxAllowed:
+        cpu: 1
+        memory: 512Mi
+      controlledResources:
+      - cpu
+      - memory
+---
+# VPA Update Mode: Auto-update request/limit saat Pod di-recreate.
+# HATI-HATI: Ini akan me-recreate Pod (rolling restart).
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: hungry-app-vpa-auto
+  namespace: production
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: resource-hungry-app
+  updatePolicy:
+    updateMode: "Auto"
+    # Evict Pod lama setelah rekomendasi baru diterapkan
+  resourcePolicy:
+    containerPolicies:
+    - containerName: app
+      minAllowed:
+        cpu: 50m
+        memory: 64Mi
+      maxAllowed:
+        cpu: 2
+        memory: 1Gi

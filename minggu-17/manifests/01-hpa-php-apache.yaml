@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php-apache
+spec:
+  selector:
+    matchLabels:
+      run: php-apache
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: php-apache
+    spec:
+      containers:
+      - name: php-apache
+        image: registry.k8s.io/hpa-example
+        # Image ini adalah aplikasi PHP yang melayani request
+        # dan menambahkan beban CPU di setiap request.
+        ports:
+        - containerPort: 80
+        resources:
+          # Kita HARUS mendefinisikan request CPU agar HPA dapat
+          # menghitung utilisasi relatif (persentase).
+          requests:
+            cpu: 200m
+          limits:
+            cpu: 500m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: php-apache
+  labels:
+    run: php-apache
+spec:
+  ports:
+  - port: 80
+  selector:
+    run: php-apache
+---
+# HPA v2 mendukung CPU, Memory, dan Custom/External Metrics.
+# minReplicas: minimal 1 pod saat idle.
+# maxReplicas: batas atas 10 pod saat load tinggi.
+# target CPU = 50% dari requests (200m * 50% = 100m utilisasi).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: php-apache-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: php-apache
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  behavior:
+    # Stabilization window: Menunggu 60 detik sebelum scale DOWN
+    # untuk menghindari flapping (fluktuasi cepat naik-turun).
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 30
+    # Scale UP lebih agresif (tidak ada stabilization)
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+      - type: Pods
+        value: 2
+        periodSeconds: 15
+      selectPolicy: Max
