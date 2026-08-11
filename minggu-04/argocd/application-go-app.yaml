@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: go-app-dev
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/my-org/gh-devOpsTraining.git'
+    targetRevision: HEAD
+    path: minggu-03/charts/go-app
+    helm:
+      valueFiles:
+        - ../../../minggu-04/clusters/dev/values.yaml
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: mini-prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

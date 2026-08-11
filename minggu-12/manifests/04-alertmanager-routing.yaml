@@ -1,0 +1,84 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: prod-alertmanager-config
+  namespace: prod-app
+spec:
+  route:
+    groupBy: ['alertname', 'namespace', 'service']
+    groupWait: 10s
+    groupInterval: 1m
+    repeatInterval: 2h
+    receiver: 'discord-p2-warning'
+    routes:
+      - matchers:
+          - name: severity
+            value: critical
+        receiver: 'discord-p1-critical'
+        repeatInterval: 15m
+      - matchers:
+          - name: severity
+            value: warning
+        receiver: 'discord-p2-warning'
+        repeatInterval: 1h
+      - matchers:
+          - name: severity
+            value: info
+        receiver: 'discord-p3-info'
+        repeatInterval: 4h
+  receivers:
+    - name: 'discord-p1-critical'
+      webhookConfigs:
+        - url: 'http://alertmanager-discord-webhook.monitoring.svc.cluster.local:9094/post'
+          sendResolved: true
+    - name: 'discord-p2-warning'
+      webhookConfigs:
+        - url: 'http://alertmanager-discord-webhook.monitoring.svc.cluster.local:9094/post'
+          sendResolved: true
+    - name: 'discord-p3-info'
+      webhookConfigs:
+        - url: 'http://alertmanager-discord-webhook.monitoring.svc.cluster.local:9094/post'
+          sendResolved: true
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: prod-slo-burn-rate-rules
+  namespace: prod-app
+spec:
+  groups:
+    - name: slo_burn_rate_alerts
+      rules:
+        - alert: SLOErrorBudgetFastBurn
+          expr: |
+            (
+              rate(http_requests_total{status=~"5.."}[5m]) 
+              / 
+              rate(http_requests_total[5m])
+            ) > (1 - 0.999) * 14.4
+          for: 2m
+          labels:
+            severity: critical
+            tier: api
+          annotations:
+            summary: "CRITICAL: Error budget Go API terbakar sangat cepat!"
+            description: "Error rate saat ini {{ $value | printf \"%.2f\" }}% melampaui batas Fast Burn Rate 14.4x (2% budget habis dalam 1 jam)."
+            dashboard_url: "http://localhost:3000/d/prod-app-overview"
+            runbook_url: "https://github.com/devops/runbooks/blob/main/minggu-11/04-runbook.md#1-runbook-pod-crashloopbackoff--high-error-rate"
+
+        - alert: SLOErrorBudgetSlowBurn
+          expr: |
+            (
+              rate(http_requests_total{status=~"5.."}[30m]) 
+              / 
+              rate(http_requests_total[30m])
+            ) > (1 - 0.999) * 6
+          for: 15m
+          labels:
+            severity: warning
+            tier: api
+          annotations:
+            summary: "WARNING: Error budget Go API terakumulasi bocor."
+            description: "Error rate konsisten tinggi selama 30m. Diproyeksikan menguras 5% budget dalam 6 jam."
+            dashboard_url: "http://localhost:3000/d/prod-app-overview"
+            runbook_url: "https://github.com/devops/runbooks/blob/main/minggu-11/04-runbook.md"

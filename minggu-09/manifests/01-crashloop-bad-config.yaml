@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: insiden-lab
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crashloop-app
+  namespace: insiden-lab
+  labels:
+    app: crashloop-app
+    lab: insiden-1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: crashloop-app
+  template:
+    metadata:
+      labels:
+        app: crashloop-app
+    spec:
+      containers:
+      - name: app
+        image: busybox:1.36
+        # Entrypoint ini AKAN LANGSUNG EXIT 1 → CrashLoopBackOff
+        command: ["sh", "-c", "echo 'Fatal: missing required env var DATABASE_URL'; exit 1"]
+        env:
+        - name: DATABASE_URL
+          value: ""  # sengaja kosong → aplikasi crash karena validation
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        # Liveness probe yang sebenarnya memperburuk keadaan
+        livenessProbe:
+          exec:
+            command: ["sh", "-c", "test -n \"$DATABASE_URL\""]
+          initialDelaySeconds: 5
+          periodSeconds: 5

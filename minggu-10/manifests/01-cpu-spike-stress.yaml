@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cpu-spike-app
+  namespace: insiden-lab
+  labels:
+    app: cpu-spike-app
+    lab: insiden-m10-cpu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cpu-spike-app
+  template:
+    metadata:
+      labels:
+        app: cpu-spike-app
+    spec:
+      containers:
+      - name: burn
+        image: polinux/stress:1.2.3
+        args:
+        - --cpu
+        - "4"             # 4 worker CPU loop
+        - --timeout
+        - "1800s"         # burn 30 menit
+        resources:
+          requests:
+            cpu: 500m
+            memory: 128Mi
+          limits:
+            cpu: "1"       # Sengaja limit cuma 1 core
+            memory: 256Mi

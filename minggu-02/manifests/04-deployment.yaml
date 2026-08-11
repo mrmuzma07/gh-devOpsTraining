@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-app-deployment
+  namespace: mini-prod
+  labels:
+    app: go-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: go-app
+  template:
+    metadata:
+      labels:
+        app: go-app
+    spec:
+      containers:
+      - name: go-app
+        image: go-app:v1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+
+        # Menginjeksi ConfigMap & Secret ke Environment Variables
+        envFrom:
+        - configMapRef:
+            name: go-app-config
+        - secretRef:
+            name: go-app-secret
+
+        # Mount PersistentVolumeClaim ke folder /data
+        volumeMounts:
+        - name: app-storage
+          mountPath: /data
+
+        # Resource Limits & Requests
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+
+        # 1. Startup Probe: Menunggu aplikasi inisialisasi awal
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 2
+          periodSeconds: 5
+          failureThreshold: 10
+
+        # 2. Liveness Probe: Mengecek apakah aplikasi hang (Restart jika gagal)
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+
+        # 3. Readiness Probe: Mengecek kesiapan menerima trafik
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 2
+
+      # Deklarasi Volume dari PVC
+      volumes:
+      - name: app-storage
+        persistentVolumeClaim:
+          claimName: go-app-pvc

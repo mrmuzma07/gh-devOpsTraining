@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oom-app
+  namespace: insiden-lab
+  labels:
+    app: oom-app
+    lab: insiden-2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oom-app
+  template:
+    metadata:
+      labels:
+        app: oom-app
+    spec:
+      containers:
+      - name: stress
+        image: polinux/stress:1.2.3
+        args:
+        # Alokasi 200MB virtual memory → melewati limit 128Mi
+        - --vm
+        - "1"
+        - --vm-bytes
+        - "200M"
+        - --timeout
+        - "600s"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            # Sengaja lebih kecil dari vm-bytes
+            cpu: 200m
+            memory: 128Mi

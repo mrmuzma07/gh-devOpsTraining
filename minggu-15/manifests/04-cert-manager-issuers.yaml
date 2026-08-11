@@ -1,0 +1,81 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+# Certificate untuk membuat Root CA lokal
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: my-internal-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: my-internal-ca
+  secretName: internal-ca-secret-key
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+# ClusterIssuer berbasis Internal CA untuk menandatangani Sertifikat Aplikasi
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: internal-ca-issuer
+spec:
+  ca:
+    secretName: internal-ca-secret-key
+---
+# Objek Certificate Kustom untuk Aplikasi Internal
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: api-service-cert
+  namespace: secured-apps
+spec:
+  secretName: api-service-tls-secret
+  duration: 2160h # 90 Hari
+  renewBefore: 360h # Auto-renew 15 hari sebelum expired
+  subject:
+    organizations:
+      - DevOps Training Org
+  commonName: api.local.internal
+  dnsNames:
+    - api.local.internal
+    - api.secured-apps.svc.cluster.local
+  issuerRef:
+    name: internal-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+# Ingress dengan Auto-Provisioning TLS Sertifikat melalui cert-manager
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: secure-api-ingress
+  namespace: secured-apps
+  annotations:
+    cert-manager.io/cluster-issuer: "internal-ca-issuer"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.local.internal
+    secretName: auto-ingress-tls-secret # Secret TLS akan otomatis dibuat oleh cert-manager
+  rules:
+  - host: api.local.internal
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hardened-nginx
+            port:
+              number: 8080

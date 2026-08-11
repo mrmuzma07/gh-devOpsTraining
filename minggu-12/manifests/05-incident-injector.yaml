@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: incident-chaos-injector
+  namespace: prod-app
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: chaos-db-lock
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - |
+              echo "==> SRE CHAOS INJECTION: Locking table orders..."
+              PGPASSWORD=secret psql -h postgres-service.prod-app.svc.cluster.local -U postgres -d orderdb -c "
+                BEGIN;
+                LOCK TABLE orders IN EXCLUSIVE MODE;
+                SELECT pg_sleep(300);
+                COMMIT;
+              "

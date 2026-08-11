@@ -1,0 +1,20 @@
+replicaCount: 1
+
+config:
+  appEnv: "development"
+  forceUnready: "false"
+
+secret:
+  dbUser: "dev_user"
+  dbPass: "DevPassword2026!"
+
+storage:
+  size: 512Mi
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 50m
+    memory: 64Mi

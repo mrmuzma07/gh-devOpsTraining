@@ -1,0 +1,50 @@
+# ConfigMap berisi 5 dashboard JSON untuk di-import manual via Grafana UI
+# Atau, gunakan Grafana provisioning sidecar pattern untuk auto-import.
+#
+# Untuk lab ini, kita pakai pendekatan manual import (lebih mudah debug).
+# File ini sebagai "manifest" tempat dashboard diletakkan.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-providers
+  namespace: mini-prod
+  labels:
+    grafana_datasource: "1"
+data:
+  # Catatan: dashboard JSON aktual ada di folder dashboards/
+  # Gunakan salah satu dari dua cara untuk import:
+  #
+  # Cara 1 (manual via UI):
+  #   1. Buka Grafana → menu "Dashboards" → "New" → "Import"
+  #   2. Upload file dari dashboards/01-cluster-overview.json
+  #   3. Pilih datasource Prometheus/Mimir ketika diminta
+  #
+  # Cara 2 (auto via provisioning sidecar):
+  #   Tambahkan ini ke deployment Grafana:
+  #
+  #     volumeMounts:
+  #     - name: dashboards
+  #       mountPath: /var/lib/grafana/dashboards
+  #     volumes:
+  #     - name: dashboards
+  #       configMap:
+  #         name: grafana-dashboards
+  #         items:
+  #         - key: cluster-overview.json
+  #           path: cluster-overview.json
+  #
+  #     spec.configs:
+  #       - name: 'mini-prod'
+  #         type: file
+  #         options:
+  #           folder: 'MiniProd'
+  #           path: /var/lib/grafana/dashboards
+  dashboard-list: |
+    [
+      "01-cluster-overview.json",
+      "02-node-detail.json",
+      "03-namespace-detail.json",
+      "04-pod-detail.json",
+      "05-go-app-red-method.json"
+    ]

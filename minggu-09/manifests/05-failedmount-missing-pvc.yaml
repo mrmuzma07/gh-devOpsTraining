@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: failedmount-app
+  namespace: insiden-lab
+  labels:
+    app: failedmount-app
+    lab: insiden-5
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: failedmount-app
+  template:
+    metadata:
+      labels:
+        app: failedmount-app
+    spec:
+      containers:
+      - name: app
+        image: nginx:1.27-alpine
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+      volumes:
+      - name: data
+        # PVC ini TIDAK dibuat → FailedMount
+        persistentVolumeClaim:
+          claimName: data-pvc-tidak-ada

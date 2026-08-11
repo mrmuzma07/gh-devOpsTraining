@@ -1,0 +1,50 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "id": null,
+  "title": "Mini Prod - Log Investigation Dashboard",
+  "tags": ["logs", "loki", "mini-prod"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "ERROR Logs (All Namespaces)",
+      "type": "logs",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "loki", "uid": "Grafana-Loki" },
+      "targets": [
+        {
+          "expr": "{namespace=\"mini-prod\", level=\"ERROR\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "WARN Logs (Go App)",
+      "type": "logs",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 10 },
+      "datasource": { "type": "loki", "uid": "Grafana-Loki" },
+      "targets": [
+        {
+          "expr": "{namespace=\"mini-prod\", container=\"go-app\", level=\"WARN\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Logs containing 'panic'",
+      "type": "logs",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 10 },
+      "datasource": { "type": "loki", "uid": "Grafana-Loki" },
+      "targets": [
+        {
+          "expr": "{namespace=\"mini-prod\"} |= \"panic\"",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

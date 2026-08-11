@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: grafana-alloy-logs
+  namespace: mini-prod
+  labels:
+    app: grafana-alloy-logs
+spec:
+  selector:
+    matchLabels:
+      app: grafana-alloy-logs
+  template:
+    metadata:
+      labels:
+        app: grafana-alloy-logs
+    spec:
+      containers:
+      - name: alloy
+        image: grafana/alloy:v1.0.0
+        args:
+        - "run"
+        - "/etc/alloy/config.alloy"
+        ports:
+        - containerPort: 12345
+          name: http-metrics
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 150m
+            memory: 128Mi
+        volumeMounts:
+        - name: alloy-config
+          mountPath: /etc/alloy
+      volumes:
+      - name: alloy-config
+        configMap:
+          name: alloy-loki-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-loki-config
+  namespace: mini-prod
+data:
+  config.alloy: |
+    // 1. Discover Kubernetes Pods as log sources
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    // 2. Relabel logs to extract labels (namespace, pod, container)
+    discovery.relabel "pod_logs" {
+      targets = discovery.kubernetes.pods.targets
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+    }
+
+    // 3. Tail (read) the logs from all containers
+    loki.source.kubernetes "pod_logs" {
+      targets    = discovery.relabel.pod_logs.output
+      forward_to = [loki.process.process_logs.receiver]
+    }
+
+    // 4. Parse JSON logs for better filtering
+    loki.process "process_logs" {
+      stage {
+        json {
+          expressions = { "level" = "" }
+        }
+      }
+      stage {
+        labels = {
+          level = "level",
+        }
+      }
+      forward_to = [loki.write.loki.receiver]
+    }
+
+    // 5. Send to Loki storage
+    loki.write "loki" {
+      endpoint {
+        url = "http://loki-service.mini-prod.svc:3100/loki/api/v1/push"
+      }
+    }

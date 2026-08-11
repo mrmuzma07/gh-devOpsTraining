@@ -1,0 +1,49 @@
+stages:
+  - build
+  - security-scan
+  - deploy
+
+variables:
+  IMAGE_NAME: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+  TRIVY_NO_PROGRESS: "true"
+  TRIVY_CACHE_DIR: ".trivycache/"
+
+cache:
+  paths:
+    - .trivycache/
+
+build_app:
+  stage: build
+  script:
+    - echo "Building container image $IMAGE_NAME..."
+    - docker build -t $IMAGE_NAME .
+
+trivy_vulnerability_scan:
+  stage: security-scan
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    # 1. Download database vulnerability Trivy terbaru
+    - trivy image --download-db-only
+
+    # 2. Tampilkan laporan lengkap Vulnerability di log terminal
+    - trivy image --severity HIGH,CRITICAL $IMAGE_NAME
+
+    # 3. GAGALKAN Pipeline CI jika ditemukan vulnerability CRITICAL
+    - trivy image --exit-code 1 --severity CRITICAL $IMAGE_NAME
+  allow_failure: false
+
+trivy_sbom_generation:
+  stage: security-scan
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    # Generate Software Bill of Materials (SBOM) dalam standar CycloneDX JSON
+    - trivy image --format cyclonedx --output sbom.json $IMAGE_NAME
+  artifacts:
+    name: "sbom-$CI_COMMIT_SHA"
+    paths:
+      - sbom.json
+    expire_in: 30 days

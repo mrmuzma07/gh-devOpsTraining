@@ -1,0 +1,69 @@
+---
+# VPA untuk Right-Sizing Resources
+# Modul 03: Capacity Planning
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: checkout-service-vpa
+  namespace: default
+  labels:
+    app: checkout-service
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: checkout-service
+  
+  # updatePolicy: "Off" = hanya rekomendasi, "Auto" = auto apply (butuh restart)
+  updatePolicy:
+    updateMode: "Auto"
+    minReplicas: 1
+  
+  resourcePolicy:
+    containerPolicies:
+      - containerName: app
+        minAllowed:
+          cpu: 50m
+          memory: 64Mi
+        maxAllowed:
+          cpu: 1000m
+          memory: 1Gi
+        controlledResources: ["cpu", "memory"]
+---
+# HPA untuk Scale Out (bukan scale up CPU)
+# Catatan: Jangan pakai HPA + VPA untuk metric yang sama
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: checkout-service-hpa
+  namespace: default
+  labels:
+    app: checkout-service
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: checkout-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    # Pakai custom metric atau external metric untuk avoid conflict dengan VPA
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "100"
+    # CPU metric untuk HPA → keep kecil, VPA handle right-size
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      stabilizationWindowSeconds: 30

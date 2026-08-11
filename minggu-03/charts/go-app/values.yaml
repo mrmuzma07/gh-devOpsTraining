@@ -1,0 +1,40 @@
+replicaCount: 1
+
+image:
+  repository: go-app
+  tag: v1.0.0
+  pullPolicy: IfNotPresent
+
+config:
+  appEnv: "development"
+  port: "8080"
+  forceUnready: "false"
+
+secret:
+  dbUser: "admin_dev"
+  dbPass: "DevPass123!"
+
+storage:
+  enabled: true
+  storageClass: local-path
+  size: 512Mi
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 16Mi
+  limits:
+    cpu: 50m
+    memory: 32Mi
+
+probes:
+  startup:
+    initialDelaySeconds: 2
+    periodSeconds: 5
+    failureThreshold: 10
+  liveness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5

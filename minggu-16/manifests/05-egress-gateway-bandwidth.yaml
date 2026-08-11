@@ -1,0 +1,54 @@
+# CiliumEgressGatewayPolicy: Memaksa SEMUA traffic keluar dari
+# Pod berlabel 'app: payment' di namespace 'production' untuk SNAT
+# melalui IP Node egress-gateway-1 (192.168.10.100).
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  name: payment-egress
+spec:
+  selectors:
+  - podSelector:
+      matchLabels:
+        app: payment
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: production
+  destinationCIDRs:
+  - 0.0.0.0/0  # Semua tujuan eksternal
+  egressGateway:
+    nodeSelector:
+      matchLabels:
+        cilium.io/egress-gateway: "true"
+  excludedCIDRs:
+  - 10.0.0.0/8  # Pengecualian: Traffic internal cluster TETAP lewat jalur biasa
+---
+# Pod Payment yang akan menggunakan Egress Gateway IP Statis
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment
+  namespace: production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payment
+  template:
+    metadata:
+      labels:
+        app: payment
+    spec:
+      containers:
+      - name: payment
+        image: curlimages/curl
+        command: ["sleep", "3600"]
+        resources:
+          limits:
+            # Cilium BPF Bandwidth Manager: bandwidth dalam bits per detik
+            # 100M = 100 Megabits/s
+            kubernetes.io/ingress-bandwidth: 50M
+            kubernetes.io/egress-bandwidth: 100M
+---
+# Annotations pada Node untuk menandai Node Egress Gateway
+# (Terapkan manual jika Node Anda ada)
+# kubectl label node <node-name> cilium.io/egress-gateway=true

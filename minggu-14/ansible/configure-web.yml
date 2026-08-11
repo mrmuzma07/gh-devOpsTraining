@@ -1,0 +1,27 @@
+---
+- name: Automated Local Node Configuration Lab
+  hosts: local_nodes
+  tasks:
+    - name: 1. Create target directory structure
+      ansible.builtin.file:
+        path: /tmp/ansible-lab-app
+        state: directory
+        mode: '0755'
+
+    - name: 2. Deploy application configuration file
+      ansible.builtin.copy:
+        content: |
+          APP_NAME="Ansible-Configured-App"
+          ENVIRONMENT="production"
+          MAX_CONNECTIONS=100
+        dest: /tmp/ansible-lab-app/app.conf
+        mode: '0644'
+
+    - name: 3. Verify configuration file exists
+      ansible.builtin.command:
+        cmd: cat /tmp/ansible-lab-app/app.conf
+      register: app_config_output
+
+    - name: 4. Display result message
+      ansible.builtin.debug:
+        msg: "Config File Content: {{ app_config_output.stdout_lines }}"

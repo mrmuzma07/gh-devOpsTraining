@@ -1,0 +1,81 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-environment-label
+  annotations:
+    policies.kyverno.io/title: Enforce Environment Label
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Setiap Pod yang dideploy Wajib memiliki label environment (dev, staging, prod).
+spec:
+  validationFailureAction: Enforce # Enforce (Tolak) atau Audit (Izinkan + Laporkan)
+  background: true
+  rules:
+  - name: check-environment-label
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "Setiap Pod WAJIB memiliki label 'environment' dengan nilai 'dev', 'staging', atau 'prod'."
+      pattern:
+        metadata:
+          labels:
+            environment: "dev|staging|prod"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-default-securitycontext
+  annotations:
+    policies.kyverno.io/title: Mutate Default SecurityContext
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/description: >-
+      Menginject securityContext.runAsNonRoot=true secara otomatis jika tidak didefinisikan oleh developer.
+spec:
+  rules:
+  - name: add-security-context
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    mutate:
+      patchStrategicMerge:
+        spec:
+          securityContext:
+            +(runAsNonRoot): true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-default-quota
+  annotations:
+    policies.kyverno.io/title: Generate Default ResourceQuota
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/description: >-
+      Membuat ResourceQuota otomatis saat Namespace baru dibuat.
+spec:
+  rules:
+  - name: generate-resource-quota
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      apiVersion: v1
+      kind: ResourceQuota
+      name: default-quota
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      data:
+        spec:
+          hard:
+            requests.cpu: "4"
+            requests.memory: 8Gi
+            limits.cpu: "8"
+            limits.memory: 16Gi

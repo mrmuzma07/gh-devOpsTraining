@@ -1,0 +1,145 @@
+# PrometheusRule — 6 alert untuk lab Minggu 8
+# File ini dipakai oleh kube-prometheus-stack (Mimir) untuk evaluasi.
+# Simpan sebagai ConfigMap atau gunakan operator PrometheusRule CRD.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mini-prod-alerts
+  namespace: mini-prod
+  labels:
+    prometheus: mimir
+    role: alert-rules
+spec:
+  groups:
+    # =====================================================
+    # GROUP 1: Infrastructure (USE Method)
+    # =====================================================
+    - name: infrastructure.rules
+      interval: 30s
+      rules:
+
+        - alert: PodRestartingFrequently
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="mini-prod"}[1h]) > 5
+          for: 10m
+          labels:
+            severity: warning
+            category: infrastructure
+            service: pods
+          annotations:
+            summary: "Pod {{ $labels.pod }} restart >5x dalam 1 jam"
+            description: "Container {{ $labels.container }} di pod {{ $labels.pod }} telah restart lebih dari 5 kali dalam 1 jam terakhir."
+            runbook_url: "https://wiki.example.com/runbooks/pod-restart"
+
+        - alert: HighCPUUsage
+          expr: |
+            100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+          for: 10m
+          labels:
+            severity: warning
+            category: infrastructure
+            service: nodes
+          annotations:
+            summary: "CPU usage {{ $labels.instance }} > 85%"
+            description: "CPU usage pada instance {{ $labels.instance }} telah > 85% selama 10 menit."
+            runbook_url: "https://wiki.example.com/runbooks/high-cpu"
+
+        - alert: HighMemoryUsage
+          expr: |
+            (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+          for: 10m
+          labels:
+            severity: warning
+            category: infrastructure
+            service: nodes
+          annotations:
+            summary: "Memory usage {{ $labels.instance }} > 90%"
+            description: "Memory available pada {{ $labels.instance }} tinggal < 10%."
+            runbook_url: "https://wiki.example.com/runbooks/high-memory"
+
+        - alert: DiskSpaceLow
+          expr: |
+            (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes)) * 100 > 85
+          for: 15m
+          labels:
+            severity: critical
+            category: infrastructure
+            service: nodes
+          annotations:
+            summary: "Disk {{ $labels.instance }}:{{ $labels.mountpoint }} > 85%"
+            description: "Filesystem {{ $labels.mountpoint }} di {{ $labels.instance }} tinggal < 15% free."
+            runbook_url: "https://wiki.example.com/runbooks/disk-low"
+
+    # =====================================================
+    # GROUP 2: Application (RED Method)
+    # =====================================================
+    - name: application.rules
+      interval: 30s
+      rules:
+
+        - alert: HighRequestLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le, service) (
+                rate(http_request_duration_seconds_bucket{service="go-app"}[5m])
+              )
+            ) > 1
+          for: 5m
+          labels:
+            severity: critical
+            category: application
+            service: go-app
+          annotations:
+            summary: "Latency p95 service {{ $labels.service }} > 1s"
+            description: "Latency p95 untuk service {{ $labels.service }} telah > 1 detik selama 5 menit terakhir."
+            runbook_url: "https://wiki.example.com/runbooks/high-latency"
+
+        - alert: HighErrorRate
+          expr: |
+            (
+              sum by (service) (rate(http_requests_total{service="go-app",status=~"5.."}[5m]))
+              /
+              sum by (service) (rate(http_requests_total{service="go-app"}[5m]))
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            category: application
+            service: go-app
+          annotations:
+            summary: "Error rate service {{ $labels.service }} > 5%"
+            description: "Error rate (HTTP 5xx) untuk service {{ $labels.service }} melebihi 5% dalam 5 menit terakhir."
+            runbook_url: "https://wiki.example.com/runbooks/high-error-rate"
+
+    # =====================================================
+    # GROUP 3: Availability (Golden Signals)
+    # =====================================================
+    - name: availability.rules
+      interval: 30s
+      rules:
+
+        - alert: GoAppDown
+          expr: |
+            sum(up{job="go-app"}) == 0
+          for: 2m
+          labels:
+            severity: critical
+            category: availability
+            service: go-app
+          annotations:
+            summary: "Service {{ $labels.service }} DOWN"
+            description: "Tidak ada instance {{ $labels.service }} yang up. Kemungkinan deployment crash atau network issue."
+            runbook_url: "https://wiki.example.com/runbooks/service-down"
+
+        - alert: PodPendingTooLong
+          expr: |
+            kube_pod_status_phase{phase="Pending"} == 1
+          for: 15m
+          labels:
+            severity: warning
+            category: availability
+            service: pods
+          annotations:
+            summary: "Pod {{ $labels.pod }} stuck in Pending > 15m"
+            description: "Pod {{ $labels.pod }} di namespace {{ $labels.namespace }} stuck di phase Pending lebih dari 15 menit."
+            runbook_url: "https://wiki.example.com/runbooks/pod-pending"

@@ -1,0 +1,150 @@
+---
+# PrometheusRule: Full Error Budget Implementation
+# Modul 02: Error Budget — Multi-Window Multi-Burn-Rate Alert
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: error-budget-full-implementation
+  namespace: monitoring
+  labels:
+    app: checkout-service
+    slo: enabled
+    prometheus: k3s
+spec:
+  groups:
+    # === RECORDING RULES: SLI ===
+    - name: sli_recording
+      interval: 30s
+      rules:
+        - record: sli:checkout:availability:ratio_5m
+          expr: |
+            sum(rate(http_requests_total{job="checkout-service",code=~"2xx"}[5m]))
+            /
+            sum(rate(http_requests_total{job="checkout-service"}[5m]))
+        
+        - record: sli:checkout:availability:ratio_1h
+          expr: |
+            sum(rate(http_requests_total{job="checkout-service",code=~"2xx"}[1h]))
+            /
+            sum(rate(http_requests_total{job="checkout-service"}[1h]))
+        
+        - record: sli:checkout:availability:ratio_30d
+          expr: |
+            sum(rate(http_requests_total{job="checkout-service",code=~"2xx"}[30d]))
+            /
+            sum(rate(http_requests_total{job="checkout-service"}[30d]))
+        
+        - record: sli:checkout:latency_p95:seconds_5m
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{job="checkout-service"}[5m])) by (le)
+            )
+        
+        - record: sli:checkout:latency_p99:seconds_5m
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(http_request_duration_seconds_bucket{job="checkout-service"}[5m])) by (le)
+            )
+
+    # === RECORDING RULES: ERROR BUDGET ===
+    - name: error_budget_recording
+      interval: 30s
+      rules:
+        - record: slo:checkout_error_budget:remaining_minutes_30d
+          expr: (1 - sli:checkout:availability:ratio_30d) * 30 * 24 * 60
+        
+        - record: slo:checkout_error_budget:burn_rate_5m
+          expr: 1 - sli:checkout:availability:ratio_5m
+        
+        - record: slo:checkout_error_budget:burn_rate_1h
+          expr: 1 - sli:checkout:availability:ratio_1h
+        
+        - record: slo:checkout_error_budget:burn_rate_6h
+          expr: 1 - (
+            sum(rate(http_requests_total{job="checkout-service",code=~"2xx"}[6h]))
+            /
+            sum(rate(http_requests_total{job="checkout-service"}[6h]))
+          )
+        
+        - record: slo:checkout_error_budget:budget_consumed_percent_30d
+          expr: |
+            (1 - sli:checkout:availability:ratio_30d) * 100
+            /
+            0.1  # 0.1% adalah error budget SLO 99.9%
+        
+        - record: slo:checkout_error_budget:days_to_exhaustion
+          expr: |
+            slo:checkout_error_budget:remaining_minutes_30d / 60 / 24
+            /
+            clamp_max(slo:checkout_error_budget:burn_rate_1h * 24, 1)
+            or vector(30)
+
+    # === ALERTS: MULTI-WINDOW BURN RATE ===
+    - name: error_budget_alerts
+      interval: 30s
+      rules:
+        # Critical: 14.4x burn rate (budget habis dalam 2 hari)
+        - alert: SLO_HighBurnRate_Fast
+          expr: slo:checkout_error_budget:burn_rate_5m > (14.4 * 0.001)
+          for: 2m
+          labels:
+            severity: critical
+            team: sre-oncall
+            page: pagerduty
+            slo: checkout
+            runbook: rb-001
+          annotations:
+            summary: "INSIDEN: Budget checkout terbakar 14x lebih cepat"
+            description: "5-min error rate: {{ $value | printf \"%.4f\" }}"
+            runbook_url: "https://wiki.internal/runbooks/rb-001-pod-crash"
+            dashboard_url: "https://grafana.internal/d/err-budget-checkout"
+        
+        # Warning: 1x burn rate (budget bocor stabil)
+        - alert: SLO_ModerateBurnRate_Slow
+          expr: slo:checkout_error_budget:burn_rate_1h > (1 * 0.001)
+          for: 5m
+          labels:
+            severity: warning
+            team: sre
+            slo: checkout
+          annotations:
+            summary: "Budget bocor perlahan - 1h window"
+            runbook_url: "https://wiki.internal/runbooks/investigation"
+        
+        # Budget < 25% remaining
+        - alert: SLO_BudgetBelow25Percent
+          expr: slo:checkout_error_budget:budget_consumed_percent_30d > 75
+          for: 5m
+          labels:
+            severity: warning
+            team: sre
+            slo: checkout
+            freeze: hold-risky-deploys
+          annotations:
+            summary: "Error budget < 25% remaining ({{ $value | printf \"%.1f\" }}% terpakai)"
+            action: "Hold risky deploys. Investigate root cause budget bocor."
+        
+        # Budget < 10% remaining
+        - alert: SLO_BudgetBelow10Percent
+          expr: slo:checkout_error_budget:budget_consumed_percent_30d > 90
+          for: 5m
+          labels:
+            severity: critical
+            team: sre
+            slo: checkout
+            freeze: feature-deploy
+          annotations:
+            summary: "ERROR BUDGET < 10%! Feature deployment HARUS di-pause!"
+            action: "Tarik semua PR fitur baru. Fokus ke reliability backlog."
+        
+        # Latency SLO breach
+        - alert: SLO_LatencyP95Breach
+          expr: sli:checkout:latency_p95:seconds_5m > 0.2
+          for: 10m
+          labels:
+            severity: warning
+            team: sre
+            slo: checkout-latency
+          annotations:
+            summary: "p95 latency > 200ms ({{ $value | printf \"%.3f\" }}s)"
+            runbook_url: "https://wiki.internal/runbooks/rb-006-latency"

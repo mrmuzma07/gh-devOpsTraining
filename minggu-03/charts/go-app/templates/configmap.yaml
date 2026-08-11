@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "go-app.fullname" . }}-config
+  labels:
+    {{- include "go-app.labels" . | nindent 4 }}
+data:
+  APP_ENV: {{ .Values.config.appEnv | quote }}
+  PORT: {{ .Values.config.port | quote }}
+  FORCE_UNREADY: {{ .Values.config.forceUnready | quote }}

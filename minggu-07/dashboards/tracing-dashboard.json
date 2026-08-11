@@ -1,0 +1,122 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "title": "Trace Count by Service (5m)",
+      "type": "timeseries",
+      "id": 1,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "tempo", "uid": "tempo-uid"},
+      "targets": [
+        {
+          "datasource": {"type": "tempo", "uid": "tempo-uid"},
+          "query": "{ resource.service.name != \"\" }",
+          "refId": "A",
+          "queryType": "traceql"
+        }
+      ],
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10}
+        }
+      }
+    },
+    {
+      "title": "Slowest Traces (Last 15m)",
+      "type": "table",
+      "id": 2,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "tempo", "uid": "tempo-uid"},
+      "targets": [
+        {
+          "datasource": {"type": "tempo", "uid": "tempo-uid"},
+          "query": "{ resource.service.name = \"go-app\" }",
+          "refId": "A",
+          "queryType": "traceql",
+          "limit": 20,
+          "tableType": "traces"
+        }
+      ]
+    },
+    {
+      "title": "Error Traces (5m)",
+      "type": "logs",
+      "id": 3,
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "tempo", "uid": "tempo-uid"},
+      "targets": [
+        {
+          "datasource": {"type": "tempo", "uid": "tempo-uid"},
+          "query": "{ status = error }",
+          "refId": "A",
+          "queryType": "traceql"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessages": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none"
+      }
+    },
+    {
+      "title": "Latency p95 by Service",
+      "type": "timeseries",
+      "id": 4,
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "tempo", "uid": "tempo-uid"},
+      "targets": [
+        {
+          "datasource": {"type": "tempo", "uid": "tempo-uid"},
+          "query": "quantile_over_time(0.95, { resource.service.name != \"\" }[5m])",
+          "refId": "A",
+          "queryType": "traceql"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10}
+        }
+      }
+    },
+    {
+      "title": "Service Map (Dependencies)",
+      "type": "nodeGraph",
+      "id": 5,
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 16},
+      "datasource": {"type": "tempo", "uid": "tempo-uid"},
+      "targets": [
+        {
+          "datasource": {"type": "tempo", "uid": "tempo-uid"},
+          "query": "{ resource.service.name != \"\" }",
+          "refId": "A",
+          "queryType": "traceql"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["tracing", "tempo", "otel", "minggu-7"],
+  "templating": {"list": []},
+  "time": {"from": "now-30m", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "Week 7 - Distributed Tracing Dashboard",
+  "uid": "minggu-07-tracing",
+  "version": 1,
+  "weekStart": ""
+}

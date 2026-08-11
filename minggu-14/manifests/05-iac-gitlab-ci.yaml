@@ -1,0 +1,73 @@
+stages:
+  - validate
+  - plan
+  - apply
+  - drift-check
+
+variables:
+  TOFU_ROOT_DIR: "minggu-14/tofu"
+
+.tofu_base:
+  image: ghcr.io/opentofu/opentofu:1.6.2
+  before_script:
+    - cd ${TOFU_ROOT_DIR}
+    - tofu init -input=false
+
+lint_and_validate:
+  extends: .tofu_base
+  stage: validate
+  script:
+    - tofu fmt -check
+    - tofu validate
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+plan_infrastructure:
+  extends: .tofu_base
+  stage: plan
+  script:
+    - tofu plan -input=false -out=tfplan
+  artifacts:
+    name: "tofu-plan-$CI_COMMIT_SHA"
+    paths:
+      - ${TOFU_ROOT_DIR}/tfplan
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+apply_infrastructure:
+  extends: .tofu_base
+  stage: apply
+  script:
+    - tofu apply -input=false tfplan
+  dependencies:
+    - plan_infrastructure
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+scheduled_drift_detection:
+  extends: .tofu_base
+  stage: drift-check
+  script:
+    - |
+      echo "==> Running Nightly Automated Drift Check..."
+      if ! tofu plan -detailed-exitcode -input=false; then
+        EXIT_CODE=$?
+        if [ $EXIT_CODE -eq 2 ]; then
+          echo "⚠️ DRIFT DETECTED: Infrastructure is out of sync with Git!"
+          curl -X POST -H "Content-Type: application/json" \
+               -d '{"content": "🚨 **SRE ALERT**: Infrastructure Drift Detected in OpenTofu Production State!"}' \
+               $DISCORD_WEBHOOK_URL
+          exit 2
+        else
+          echo "ERROR: OpenTofu plan failed with error code $EXIT_CODE"
+          exit 1
+        fi
+      else
+        echo "✅ SUCCESS: Infrastructure is 100% compliant with HCL code."
+      fi
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"

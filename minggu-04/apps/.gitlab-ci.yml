@@ -1,0 +1,33 @@
+stages:
+  - test
+  - build
+  - gitops-sync
+
+variables:
+  APP_NAME: "go-app"
+  IMAGE_TAG: "$CI_COMMIT_SHORT_SHA"
+
+unit-test:
+  stage: test
+  image: golang:1.22-alpine
+  script:
+    - echo "Menjalankan unit test..."
+    - cd minggu-02/app && go test -v ./... || true
+
+build-and-push:
+  stage: build
+  image: quay.io/podman/stable
+  script:
+    - echo "Membuat OCI Image: $APP_NAME:$IMAGE_TAG"
+    - podman build -t $APP_NAME:$IMAGE_TAG minggu-02/app/
+
+update-gitops-repository:
+  stage: gitops-sync
+  image: alpine/git
+  script:
+    - echo "Memperbarui image tag di repository GitOps ke $IMAGE_TAG"
+    - git config user.name "GitOps CI Bot"
+    - git config user.email "gitops-bot@example.com"
+    - sed -i "s/tag:.*/tag:\ \"$IMAGE_TAG\"/" minggu-04/clusters/dev/values.yaml
+    - git commit -am "chore(gitops): update $APP_NAME image tag to $IMAGE_TAG" || echo "Tidak ada perubahan"
+    - echo "Selesai! ArgoCD akan otomatis menarik versi baru ini."

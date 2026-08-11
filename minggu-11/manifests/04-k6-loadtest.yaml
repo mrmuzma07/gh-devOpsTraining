@@ -1,0 +1,168 @@
+---
+# K6 Load Testing Script
+# Modul 04: Runbook validation - Test SLO 99.9% availability & latency p95<200ms
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-load-test-script
+  namespace: default
+  labels:
+    app: loadtest
+    type: k6
+data:
+  loadtest.js: |
+    // K6 Load Test untuk validasi SLO Mini Production Platform
+    // Target: 100 RPS, 95% request < 200ms, error rate < 0.1%
+    
+    import http from 'k6/http';
+    import { check, sleep } from 'k6';
+    import { Counter, Rate, Trend } from 'k6/metrics';
+    
+    // Custom metrics
+    const errorRate = new Rate('errors');
+    const checkoutDuration = new Trend('checkout_duration');
+    const successCount = new Counter('success_count');
+    const failCount = new Counter('fail_count');
+    
+    export const options = {
+      stages: [
+        { duration: '1m', target: 50 },   // Ramp-up ke 50 RPS
+        { duration: '3m', target: 100 },  // Hold di 100 RPS (3 menit)
+        { duration: '1m', target: 200 },  // Spike ke 200 RPS
+        { duration: '2m', target: 100 },  // Back to 100 RPS
+        { duration: '1m', target: 0 },    // Ramp-down
+      ],
+      thresholds: {
+        // SLO validations
+        'http_req_duration{endpoint:checkout}': ['p(95)<200'],  // p95 < 200ms
+        'http_req_duration{endpoint:checkout}': ['p(99)<500'],  // p99 < 500ms
+        'http_req_failed': ['rate<0.001'],                       // Error rate < 0.1%
+        'http_reqs': ['rate>50'],                                // Min 50 RPS
+        'checks': ['rate>0.99'],                                 // 99% checks pass
+      },
+    };
+    
+    const BASE_URL = __ENV.BASE_URL || 'http://checkout-service.default.svc.cluster.local:8080';
+    
+    export default function () {
+      // Skenario 1: GET /health (ringan, untuk hit RPS)
+      const healthRes = http.get(`${BASE_URL}/health`);
+      check(healthRes, {
+        'health status 200': (r) => r.status === 200,
+        'health latency < 50ms': (r) => r.timings.duration < 50,
+      });
+      
+      // Skenario 2: GET /api/v1/products (medium)
+      const productsRes = http.get(`${BASE_URL}/api/v1/products`, {
+        tags: { endpoint: 'products' },
+      });
+      check(productsRes, {
+        'products status 200': (r) => r.status === 200,
+        'products latency < 200ms': (r) => r.timings.duration < 200,
+      });
+      
+      // Skenario 3: POST /api/v1/checkout (heavy, target SLO)
+      const checkoutPayload = JSON.stringify({
+        items: [
+          { product_id: 1, quantity: 2 },
+          { product_id: 5, quantity: 1 },
+        ],
+        user_id: Math.floor(Math.random() * 1000),
+      });
+      
+      const checkoutRes = http.post(`${BASE_URL}/api/v1/checkout`, checkoutPayload, {
+        headers: { 'Content-Type': 'application/json' },
+        tags: { endpoint: 'checkout' },
+      });
+      
+      const checkoutOk = check(checkoutRes, {
+        'checkout status 2xx': (r) => r.status >= 200 && r.status < 300,
+        'checkout latency < 200ms': (r) => r.timings.duration < 200,
+        'checkout has order_id': (r) => {
+          try {
+            return JSON.parse(r.body).order_id !== undefined;
+          } catch {
+            return false;
+          }
+        },
+      });
+      
+      checkoutDuration.add(checkoutRes.timings.duration);
+      errorRate.add(!checkoutOk);
+      if (checkoutOk) successCount.add(1);
+      else failCount.add(1);
+      
+      sleep(0.1);  // 10 RPS per VU, 10 VU = 100 RPS
+    }
+    
+    export function handleSummary(data) {
+      return {
+        'stdout': textSummary(data, { indent: ' ', enableColors: true }),
+        '/results/k6-summary.json': JSON.stringify(data, null, 2),
+      };
+    }
+    
+    function textSummary(data, options) {
+      const indent = options.indent || '';
+      const colors = options.enableColors;
+      
+      let summary = '\n';
+      summary += `${indent}========== SLO Validation Report ==========\n`;
+      
+      const httpReqDuration = data.metrics['http_req_duration'];
+      if (httpReqDuration) {
+        summary += `${indent}p50: ${httpReqDuration.values['p(50)'].toFixed(2)}ms\n`;
+        summary += `${indent}p95: ${httpReqDuration.values['p(95)'].toFixed(2)}ms (SLO: <200ms)\n`;
+        summary += `${indent}p99: ${httpReqDuration.values['p(99)'].toFixed(2)}ms (SLO: <500ms)\n`;
+      }
+      
+      const httpReqFailed = data.metrics['http_req_failed'];
+      if (httpReqFailed) {
+        const failRate = (httpReqFailed.values.rate * 100).toFixed(3);
+        summary += `${indent}Error rate: ${failRate}% (SLO: <0.1%)\n`;
+      }
+      
+      summary += `${indent}==========================================\n`;
+      return summary;
+    }
+
+---
+# K6 Load Test Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-load-test
+  namespace: default
+  labels:
+    app: k6
+    type: loadtest
+spec:
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: k6
+        image: grafana/k6:0.48.0
+        command: ["k6", "run", "/scripts/loadtest.js"]
+        env:
+        - name: BASE_URL
+          value: "http://checkout-service.default.svc.cluster.local:8080"
+        volumeMounts:
+        - name: k6-scripts
+          mountPath: /scripts
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      volumes:
+      - name: k6-scripts
+        configMap:
+          name: k6-load-test-script
+          defaultMode: 0777
+  backoffLimit: 0

@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpu-app
+  namespace: insiden-lab
+  labels:
+    app: gpu-app
+    lab: insiden-3b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gpu-app
+  template:
+    metadata:
+      labels:
+        app: gpu-app
+    spec:
+      nodeSelector:
+        # Tidak ada node dengan label ini di cluster kita
+        hardware: nvidia-a100
+      containers:
+      - name: app
+        image: nginx:1.27-alpine
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi

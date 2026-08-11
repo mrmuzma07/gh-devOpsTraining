@@ -1,0 +1,145 @@
+# Alertmanager Configuration — routing & grouping
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: mini-prod
+data:
+  alertmanager.yaml: |
+    global:
+      resolve_timeout: 5m
+      # Opsional: SMTP/email default jika ada
+      # smtp_smarthost: 'smtp.example.com:587'
+      # smtp_from: '[email protected]'
+
+    route:
+      receiver: 'default-receiver'
+      group_by: ['alertname', 'namespace', 'service']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+        # Critical → page on-call (PagerDuty atau Slack urgent)
+        - match:
+            severity: critical
+          receiver: 'critical-receiver'
+          group_wait: 10s
+          repeat_interval: 1h
+
+        # Warning → Slack informational
+        - match:
+            severity: warning
+          receiver: 'warning-receiver'
+          group_wait: 1m
+          repeat_interval: 12h
+
+    receivers:
+      - name: 'default-receiver'
+        webhook_configs:
+          - url: 'http://localhost:5001/'  # opsional webhook default
+
+      - name: 'critical-receiver'
+        # Di production, pakai PagerDuty:
+        # pagerduty_configs:
+        #   - service_key: '<integration-key>'
+        # Untuk lab, pakai Slack sebagai fallback
+        slack_configs:
+          - api_url: 'https://hooks.slack.com/services/REPLACE_WITH_YOUR_WEBHOOK'
+            channel: '#alerts-critical'
+            title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+            text: |
+              *Summary:* {{ .CommonAnnotations.summary }}
+              *Description:* {{ .CommonAnnotations.description }}
+              *Severity:* {{ .GroupLabels.severity }}
+              *Service:* {{ .GroupLabels.service }}
+              *Runbook:* {{ .CommonAnnotations.runbook_url }}
+            send_resolved: true
+
+      - name: 'warning-receiver'
+        slack_configs:
+          - api_url: 'https://hooks.slack.com/services/REPLACE_WITH_YOUR_WEBHOOK'
+            channel: '#alerts-warning'
+            title: '⚠️  WARNING: {{ .GroupLabels.alertname }}'
+            text: |
+              *Summary:* {{ .CommonAnnotations.summary }}
+              *Description:* {{ .CommonAnnotations.description }}
+              *Severity:* {{ .GroupLabels.severity }}
+              *Service:* {{ .GroupLabels.service }}
+            send_resolved: true
+
+    inhibit_rules:
+      # Jika service DOWN, jangan kirim alert HighLatency/HighErrorRate dari service yang sama
+      - source_match:
+          alertname: 'GoAppDown'
+        target_match:
+          category: 'application'
+        equal: ['service']
+
+      # Jika disk full, inhibit alert dari pod di node itu
+      - source_match:
+          alertname: 'DiskSpaceLow'
+        target_match:
+          category: 'infrastructure'
+        equal: ['instance']
+---
+# Alertmanager Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: mini-prod
+  labels:
+    app: alertmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      containers:
+      - name: alertmanager
+        image: prom/alertmanager:v0.27.0
+        args:
+        - "--config.file=/etc/alertmanager/alertmanager.yaml"
+        - "--storage.path=/alertmanager"
+        - "--cluster.listen-address="
+        ports:
+        - containerPort: 9093
+          name: http
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        volumeMounts:
+        - name: alertmanager-config
+          mountPath: /etc/alertmanager
+        - name: alertmanager-data
+          mountPath: /alertmanager
+      volumes:
+      - name: alertmanager-config
+        configMap:
+          name: alertmanager-config
+      - name: alertmanager-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: mini-prod
+  labels:
+    app: alertmanager
+spec:
+  selector:
+    app: alertmanager
+  ports:
+  - name: http
+    port: 9093
+    targetPort: 9093

@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: secured-apps
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+---
+# Pod yang DITOLAK oleh Restricted PSA (Non-Compliant)
+# Hapus komentar bagian ini untuk menguji penolakan oleh PSA API
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   name: bad-pod-root
+#   namespace: secured-apps
+# spec:
+#   containers:
+#   - name: nginx
+#     image: nginx:alpine
+#     securityContext:
+#       privileged: true # Dilarang keras pada Restricted & Baseline!
+---
+# Pod yang DITERIMA oleh Restricted PSA (Compliant Hardened Pod)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hardened-nginx
+  namespace: secured-apps
+  labels:
+    app: hardened-nginx
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: nginx
+    image: nginxinc/nginx-unprivileged:alpine
+    ports:
+    - containerPort: 8080
+      name: http
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    volumeMounts:
+    - mountPath: /tmp
+      name: tmp-volume
+  volumes:
+  - name: tmp-volume
+    emptyDir: {}

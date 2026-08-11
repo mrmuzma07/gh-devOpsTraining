@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pending-app
+  namespace: insiden-lab
+  labels:
+    app: pending-app
+    lab: insiden-3
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pending-app
+  template:
+    metadata:
+      labels:
+        app: pending-app
+    spec:
+      containers:
+      - name: app
+        image: nginx:1.27-alpine
+        # Minta 16 CPU & 64Gi memory — mustahil di single-node laptop
+        resources:
+          requests:
+            cpu: "16"
+            memory: 64Gi
+          limits:
+            cpu: "16"
+            memory: 64Gi
+        ports:
+        - containerPort: 80

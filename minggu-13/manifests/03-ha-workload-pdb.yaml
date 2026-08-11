@@ -1,0 +1,67 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: go-app-pdb
+  namespace: prod-app
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: go-app-ha
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-app-ha
+  namespace: prod-app
+  labels:
+    app: go-app-ha
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: go-app-ha
+  template:
+    metadata:
+      labels:
+        app: go-app-ha
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: go-app-ha
+
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - go-app-ha
+                topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: go-app
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5

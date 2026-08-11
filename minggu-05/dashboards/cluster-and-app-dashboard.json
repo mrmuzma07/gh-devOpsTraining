@@ -1,0 +1,48 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "title": "Mini Prod - Cluster & App Metrics",
+  "tags": ["kubernetes", "metrics", "mini-prod"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Go App HTTP Request Rate (req/sec)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(http_requests_total[1m])",
+          "legendFormat": "{{method}} {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Pod Restarts Count",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(kube_pod_container_status_restarts_total{namespace=\"mini-prod\"})",
+          "legendFormat": "Restarts"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "CPU Usage Spike (millicores)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"mini-prod\"}[1m])) * 1000",
+          "legendFormat": "CPU Usage (m)"
+        }
+      ]
+    }
+  ]
+}

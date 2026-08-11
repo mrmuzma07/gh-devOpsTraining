@@ -1,0 +1,149 @@
+# Grafana Alloy — berfungsi sebagai OpenTelemetry Collector
+# DaemonSet: 1 Pod per node, menerima OTLP dari semua Pod di node tsb.
+# Lalu forward ke Tempo dengan tambahan label Kubernetes.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-otel-config
+  namespace: mini-prod
+data:
+  config.alloy: |
+    // 1. Receiver OTLP dari aplikasi (gRPC + HTTP)
+    otelcol.receiver.otlp "default" {
+      grpc {
+        endpoint = "0.0.0.0:4317"
+      }
+      http {
+        endpoint = "0.0.0.0:4318"
+      }
+
+      output {
+        traces = [otelcol.processor.batch.input]
+      }
+    }
+
+    // 2. Processor batch (efisiensi export)
+    otelcol.processor.batch "default" {
+      timeout = "5s"
+      send_batch_size = 1024
+
+      output {
+        traces = [otelcol.exporter.otlp.tempo.input]
+      }
+    }
+
+    // 3. Exporter OTLP ke Tempo
+    otelcol.exporter.otlp "tempo" {
+      client {
+        endpoint = "tempo.mini-prod.svc.cluster.local:4317"
+        tls {
+          insecure = true
+        }
+      }
+    }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-alloy-otel
+  namespace: mini-prod
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: grafana-alloy-otel
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "nodes", "namespaces"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana-alloy-otel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: grafana-alloy-otel
+subjects:
+- kind: ServiceAccount
+  name: grafana-alloy-otel
+  namespace: mini-prod
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: grafana-alloy-otel
+  namespace: mini-prod
+  labels:
+    app: grafana-alloy-otel
+spec:
+  selector:
+    matchLabels:
+      app: grafana-alloy-otel
+  template:
+    metadata:
+      labels:
+        app: grafana-alloy-otel
+    spec:
+      serviceAccountName: grafana-alloy-otel
+      containers:
+      - name: alloy
+        image: grafana/alloy:v1.1.0
+        args:
+        - --config.file=/etc/alloy/config.alloy
+        - --storage.path=/var/lib/alloy/data
+        - --cluster.enabled=true
+        ports:
+        - containerPort: 4317
+          name: otlp-grpc
+          hostPort: 4317
+        - containerPort: 4318
+          name: otlp-http
+        - containerPort: 12345
+          name: ui
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        volumeMounts:
+        - name: alloy-config
+          mountPath: /etc/alloy
+        - name: alloy-storage
+          mountPath: /var/lib/alloy/data
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 12345
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: alloy-config
+        configMap:
+          name: alloy-otel-config
+      - name: alloy-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-alloy-otel
+  namespace: mini-prod
+  labels:
+    app: grafana-alloy-otel
+spec:
+  selector:
+    app: grafana-alloy-otel
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+  - name: ui
+    port: 12345
+    targetPort: 12345

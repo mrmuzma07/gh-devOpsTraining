@@ -1,0 +1,64 @@
+---
+# SLO Specification ConfigMap
+# Modul 01: SLI/SLO/SLA
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: slo-specification
+  namespace: monitoring
+  labels:
+    app: checkout-service
+    slo: enabled
+data:
+  sli.yaml: |
+    service: checkout-service
+    description: "Specification of SLI/SLO for checkout service"
+    slis:
+      - name: availability
+        description: "Persentase HTTP 2xx dari total request"
+        good_events: 'code=~"2xx"'
+        total_events: 'code=~".+"'
+        objective: 99.9
+        window: 30d
+      
+      - name: latency_p95
+        description: "95% request selesai di bawah threshold"
+        threshold_ms: 200
+        percentile: 95
+        objective: 95.0
+        window: 5m
+      
+      - name: latency_p99
+        description: "99% request selesai di bawah threshold"
+        threshold_ms: 500
+        percentile: 99
+        objective: 99.0
+        window: 5m
+    
+    slos:
+      - name: availability_slo
+        target: 99.9
+        window: 30d
+        error_budget_minutes: 43.2
+      
+      - name: latency_slo
+        target: 95.0
+        threshold_ms: 200
+        window: 5m
+
+  slo-summary.md: |
+    # SLO Statement — Checkout Service
+    
+    ## Availability
+    99.9% of HTTP requests will return status 2xx in any 30-day rolling window.
+    - Max downtime: 43.2 minutes per month
+    - Error budget: 0.1% of all requests
+    
+    ## Latency
+    95% of requests will complete in < 200ms (5-min window).
+    99% of requests will complete in < 500ms (5-min window).
+    
+    ## Action on Breach
+    - 50% budget remaining: Notify SRE on Slack
+    - 25% budget remaining: Hold feature deploys, postmortem required
+    - 10% budget remaining: Code freeze, all-hands incident

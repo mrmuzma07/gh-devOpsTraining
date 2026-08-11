@@ -1,0 +1,20 @@
+replicaCount: 3
+
+config:
+  appEnv: "production"
+  forceUnready: "false"
+
+secret:
+  dbUser: "prod_admin"
+  dbPass: "SuperSecretProdPass2026!#$"
+
+storage:
+  size: 2Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi

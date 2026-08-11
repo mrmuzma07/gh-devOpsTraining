@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imagepull-app
+  namespace: insiden-lab
+  labels:
+    app: imagepull-app
+    lab: insiden-4
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imagepull-app
+  template:
+    metadata:
+      labels:
+        app: imagepull-app
+    spec:
+      containers:
+      - name: app
+        # Tag ini TIDAK ADA di Docker Hub
+        image: nginx:v999.999.999-typo
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi

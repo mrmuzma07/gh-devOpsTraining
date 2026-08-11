@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: grafana-alloy
+  namespace: mini-prod
+  labels:
+    app: grafana-alloy
+spec:
+  selector:
+    matchLabels:
+      app: grafana-alloy
+  template:
+    metadata:
+      labels:
+        app: grafana-alloy
+    spec:
+      containers:
+      - name: alloy
+        image: grafana/alloy:v1.0.0
+        args:
+        - "run"
+        - "/etc/alloy/config.alloy"
+        ports:
+        - containerPort: 12345
+          name: http-metrics
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 150m
+            memory: 128Mi
+        volumeMounts:
+        - name: alloy-config
+          mountPath: /etc/alloy
+      volumes:
+      - name: alloy-config
+        configMap:
+          name: alloy-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: mini-prod
+data:
+  config.alloy: |
+    // 1. Scrape Go App Metrics
+    prometheus.scrape "go_app" {
+      targets = [{
+        __address__ = "go-app-service.mini-prod.svc:8080",
+      }]
+      forward_to = [prometheus.remote_write.mimir.receiver]
+      scrape_interval = "5s"
+    }
+
+    // 2. Scrape Nginx Metrics
+    prometheus.scrape "nginx_app" {
+      targets = [{
+        __address__ = "nginx-service.mini-prod.svc:80",
+      }]
+      forward_to = [prometheus.remote_write.mimir.receiver]
+      scrape_interval = "10s"
+    }
+
+    // 3. Remote Write to Mimir Storage
+    prometheus.remote_write "mimir" {
+      endpoint {
+        url = "http://mimir-service.mini-prod.svc:9009/api/v1/push"
+      }
+    }

@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-loadtest-script
+  namespace: prod-app
+data:
+  loadtest.js: |
+    import http from 'k6/http';
+    import { check, sleep } from 'k6';
+    import { Counter, Rate, Trend } from 'k6/metrics';
+
+    const httpErrorRate = new Rate('http_error_rate');
+    const orderLatency = new Trend('order_processing_latency');
+    const successfulOrders = new Counter('successful_orders_count');
+
+    const testType = __ENV.TEST_TYPE || 'smoke';
+    const baseUrl = __ENV.TARGET_URL || 'http://go-app-service.prod-app.svc.cluster.local:8080';
+
+    export const options = getOptions(testType);
+
+    function getOptions(type) {
+      switch (type) {
+        case 'smoke':
+          return {
+            stages: [
+              { duration: '1m', target: 5 },
+            ],
+            thresholds: {
+              http_req_failed: ['rate<0.001'],
+              http_req_duration: ['p(95)<100'],
+            },
+          };
+        case 'stress':
+          return {
+            stages: [
+              { duration: '2m', target: 20 },
+              { duration: '5m', target: 100 },
+              { duration: '5m', target: 200 },
+              { duration: '2m', target: 0 },
+            ],
+            thresholds: {
+              http_req_failed: ['rate<0.01'],
+              http_req_duration: ['p(95)<300'],
+            },
+          };
+        case 'spike':
+          return {
+            stages: [
+              { duration: '30s', target: 10 },
+              { duration: '30s', target: 500 },
+              { duration: '1m', target: 500 },
+              { duration: '30s', target: 10 },
+            ],
+            thresholds: {
+              http_req_failed: ['rate<0.05'],
+            },
+          };
+        case 'soak':
+          return {
+            stages: [
+              { duration: '2m', target: 50 },
+              { duration: '30m', target: 50 },
+              { duration: '2m', target: 0 },
+            ],
+            thresholds: {
+              http_req_failed: ['rate<0.001'],
+              http_req_duration: ['p(95)<200'],
+            },
+          };
+        default:
+          return {};
+      }
+    }
+
+    export default function () {
+      const resHealth = http.get(`${baseUrl}/healthz`);
+      check(resHealth, {
+        'healthz status is 200': (r) => r.status === 200,
+      });
+
+      sleep(0.5);
+
+      const resProducts = http.get(`${baseUrl}/api/v1/products`);
+      const productSuccess = check(resProducts, {
+        'products status is 200': (r) => r.status === 200,
+        'products response latency < 150ms': (r) => r.timings.duration < 150,
+      });
+      httpErrorRate.add(!productSuccess);
+
+      sleep(1);
+
+      const payload = JSON.stringify({
+        user_id: `user_${__VU}`,
+        item_id: 'ITEM-101',
+        quantity: Math.floor(Math.random() * 5) + 1,
+      });
+
+      const params = {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
+
+      const resOrder = http.post(`${baseUrl}/api/v1/orders`, payload, params);
+      const orderSuccess = check(resOrder, {
+        'order status is 201': (r) => r.status === 201,
+      });
+
+      httpErrorRate.add(!orderSuccess);
+      orderLatency.add(resOrder.timings.duration);
+
+      if (orderSuccess) {
+        successfulOrders.add(1);
+      }
+
+      sleep(1);
+    }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-smoke-test-job
+  namespace: prod-app
+spec:
+  template:
+    metadata:
+      labels:
+        app: k6-loadtest
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: grafana/k6:0.50.0
+          command: ["k6", "run", "/scripts/loadtest.js"]
+          env:
+            - name: TEST_TYPE
+              value: "smoke"
+            - name: TARGET_URL
+              value: "http://go-app-service.prod-app.svc.cluster.local:8080"
+          volumeMounts:
+            - name: script-vol
+              mountPath: /scripts
+      volumes:
+        - name: script-vol
+          configMap:
+            name: k6-loadtest-script

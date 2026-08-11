@@ -1,0 +1,27 @@
+replicaCount: 1
+
+image:
+  repository: go-app
+  tag: v1.0.0
+  pullPolicy: IfNotPresent
+
+config:
+  appEnv: "development-gitops"
+  forceUnready: "false"
+
+secret:
+  dbUser: "gitops_dev_user"
+  dbPass: "GitOpsDevPass2026!"
+
+storage:
+  enabled: true
+  storageClass: local-path
+  size: 512Mi
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 50m
+    memory: 64Mi
