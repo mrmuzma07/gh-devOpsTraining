@@ -20,6 +20,22 @@ Pada akhir kurikulum, peserta diharapkan mampu:
 
 ## Peta Kurikulum 24 Minggu
 
+> **Untuk pemula:** selesaikan **Tahap 0** terlebih dahulu. Tahap ini bukan bagian dari hitungan 24 minggu, tetapi menjadi prasyarat agar materi Tahap 1 dapat diikuti dengan nyaman.
+
+### Tahap 0: Prasyarat SRE dan DevOps
+
+Tahap 0 membangun fondasi yang sering diasumsikan sudah dikuasai: Linux dan terminal, networking, Git, otomasi CLI, serta metode troubleshooting. Materi lengkap dan checklist kelulusan tersedia di [direktori Tahap 0](./tahap-0/README.md).
+
+| Modul | Fokus | Materi |
+| --- | --- | --- |
+| 1 | Linux dan Terminal | Shell, filesystem, permission, proses, service, package manager, dan SSH | [Modul Linux](./tahap-0/01-linux-dan-terminal.md) |
+| 2 | Networking Dasar | IP, DNS, port, TCP/UDP, HTTP/TLS, routing, proxy, dan tools diagnosis | [Modul Networking](./tahap-0/02-networking-dasar.md) |
+| 3 | Git dan Workflow | Repository, commit, branch, merge/rebase, conflict, remote, pull request, dan recovery | [Modul Git](./tahap-0/03-git-dan-workflow.md) |
+| 4 | Otomasi dan Tooling | YAML, JSON, environment variable, shell script, CLI, dan membaca dokumentasi | [Modul Otomasi](./tahap-0/04-otomasi-dan-tooling.md) |
+| 5 | Praktik Troubleshooting | Hipotesis, observasi, mitigasi, rollback, runbook, dan postmortem | [Modul Troubleshooting](./tahap-0/05-praktik-troubleshooting.md) |
+
+**Acceptance gate:** sebelum lanjut, pastikan Anda dapat menggunakan terminal Linux, mendiagnosis koneksi HTTP sederhana, membuat dan memulihkan perubahan Git, membaca YAML/JSON, serta menulis langkah troubleshooting yang dapat diulang.
+
 ### Tahap 1: Fondasi Platform (Minggu 1-4)
 
 | Minggu | Fokus | Kemampuan dan artefak utama | Materi |
@@ -86,6 +102,9 @@ yang ditemukan.
 
 Tool inti yang digunakan sepanjang kurikulum meliputi:
 
+- Linux shell dan utilitas CLI dasar untuk menjalankan latihan serta diagnosis.
+- Git untuk version control, code review, dan GitOps.
+- `curl` serta utilitas DNS/socket untuk menguji konektivitas.
 - `kubectl` untuk berinteraksi dengan cluster.
 - `k3s` atau `k3d` untuk cluster Kubernetes lokal.
 - OrbStack + Docker CLI untuk membuat dan menjalankan image secara lokal di macOS; gunakan runtime setara pada platform lain.
@@ -169,9 +188,11 @@ dipahami.
 
 ### Jalur pemula
 
-Selesaikan Minggu 1-4 terlebih dahulu. Fokus pada Kubernetes, deployment
-aplikasi, Helm, dan GitOps. Jangan memasang seluruh observability stack sebelum
-workload dasar dapat di-deploy dan di-debug secara manual.
+Mulai dari [Tahap 0](./tahap-0/README.md), terutama modul Linux, Networking, dan Git.
+Setelah acceptance gate terpenuhi, lanjutkan Minggu 1-4 dengan fokus pada
+Kubernetes, deployment aplikasi, Helm, dan GitOps. Jangan memasang seluruh
+observability stack sebelum workload dasar dapat di-deploy dan di-debug secara
+manual.
 
 ### Jalur observability dan operasi
 
