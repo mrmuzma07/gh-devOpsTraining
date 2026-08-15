@@ -88,7 +88,7 @@ Tool inti yang digunakan sepanjang kurikulum meliputi:
 
 - `kubectl` untuk berinteraksi dengan cluster.
 - `k3s` atau `k3d` untuk cluster Kubernetes lokal.
-- Podman atau Docker untuk membuat dan menjalankan image.
+- OrbStack + Docker CLI untuk membuat dan menjalankan image secara lokal di macOS; gunakan runtime setara pada platform lain.
 - `helm` untuk package management dan instalasi komponen cluster.
 - GitLab dan ArgoCD untuk CI/CD serta GitOps.
 - Grafana, Mimir, Loki, Tempo, dan Alloy untuk observability.

@@ -12,7 +12,7 @@ Dalam arsitektur GitOps modern, peran **GitLab CI** dan **ArgoCD** dibagi secara
 graph LR
     subgraph CI_Pipeline [GitLab CI/CD - Integration]
         Code[Source Code Go] --> Test[Unit Test]
-        Test --> Build[Build OCI Image via Podman/Kaniko]
+        Test --> Build[Local: OrbStack Docker CLI<br/>CI: Podman/Kaniko]
         Build --> Push[Push Image ke Container Registry]
         Push --> UpdateGit[Update Image Tag di GitOps Repo]
     end
@@ -24,8 +24,10 @@ graph LR
 ```
 
 ### Tugas Masing-Masing Komponen:
-- **GitLab CI (Continuous Integration):** FOKUS pada kode program (testing, linting, pembentukan Docker image, dan update versi tag image).
+- **GitLab CI (Continuous Integration):** FOKUS pada kode program (testing, linting, pembentukan OCI image, dan update versi tag image). Di laptop macOS, developer dapat membangun image dengan Docker CLI dari OrbStack; runner CI tetap memakai builder Linux yang dikonfigurasi, seperti Podman atau Kaniko.
 - **ArgoCD (Continuous Deployment):** FOKUS pada status cluster (memastikan manifest Kubernetes di cluster selalu cocok dengan isi Git Repository).
+
+> OrbStack adalah runtime lokal macOS, bukan service yang dapat dipasang sebagai engine pada GitLab Runner Linux. Karena itu jangan mengganti job CI dengan OrbStack; gunakan builder yang tersedia di runner dan pastikan hasilnya tetap OCI-compatible.
 
 ---
 
@@ -64,6 +66,7 @@ unit-test:
     - go test -v ./...
 
 # 2. Stage Build & Push OCI Image
+# OrbStack hanya untuk development lokal macOS; runner CI memakai builder Linux.
 build-image:
   stage: build
   image: quay.io/podman/stable
