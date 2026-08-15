@@ -1,6 +1,6 @@
 # Roadmap SRE Lanjutan - 12 Minggu Berikutnya
 
-Roadmap ini melanjutkan Minggu 01 sampai Minggu 12. Fokusnya adalah capability production yang belum cukup kuat pada mini platform dasar:
+Roadmap ini melanjutkan **Tahap 1 (Minggu 01-12)** setelah prasyarat pada [Tahap 0](./tahap-0/README.md) terpenuhi. Fokusnya adalah capability production yang belum cukup kuat pada mini platform dasar:
 
 
 ## Tujuan tahap lanjutan
