@@ -210,6 +210,15 @@ Pemahaman networking dasar di atas terhubung langsung dengan komponen arsitektur
 
 ---
 
+
+### E. Bare-Metal & On-Premise Load Balancing dengan MetalLB
+
+Di cloud publik (AWS/GCP), memprovisi Service `type: LoadBalancer` akan secara otomatis membuat Cloud Load Balancer. Namun pada infrastruktur **On-Premise** (seperti server fisik atau VM di **vCenter vSphere** dan **Proxmox VE**), tidak ada controller cloud otomatis bawaan.
+
+**MetalLB** hadir sebagai solusi On-Premise Load Balancer yang mengalokasikan IP Virtual (VIP) dari pool IP private perusahaan:
+- **Layer 2 Mode (ARP/NDP):** Satu node bertindak sebagai penyedia ARP untuk IP virtual LoadBalancer. Cocok untuk jaringan subnet lokal sederhana.
+- **BGP Mode:** Node Kubernetes membentuk sesi BGP dengan Router fisik On-Premise (MikroTik, Cisco, Juniper) untuk mengumumkan IP Virtual secara dinamis.
+
 ## 6. Lab Hands-on: Diagnostic & Troubleshooting Connectivity
 
 Pada latihan ini, Anda akan mendiagnosis kesehatan endpoint HTTP publik secara sistematis.

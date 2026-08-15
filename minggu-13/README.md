@@ -12,7 +12,7 @@ Pada modul Minggu 13 ini, Anda akan mempelajari bagaimana merancang, membangun, 
 
 ### Kompetensi Utama yang Akan Anda Kuasai:
 1. **Teori & Konsep HA Cluster**: Memahami etcd Raft Distributed Consensus, perhitungan **Quorum** ($Q = \lfloor N/2 \rfloor + 1$), dan pencegahan **Split-Brain Syndrome**.
-2. **Setup Multi-Node k3s Cluster**: Mengkonfigurasi 3 Master Node (Control Plane dengan Embedded etcd) + 2 Worker Node di laptop menggunakan `k3d` / `multipass` / `Docker multi-node`.
+2. **Setup Multi-Node k3s/RKE2 Cluster & MetalLB**: Mengkonfigurasi 3 Master Node (Control Plane dengan Embedded etcd) + 2 Worker Node menggunakan `multipass` / `k3d` di laptop, serta mengonfigurasi **MetalLB** (Layer 2 IPAddressPool) untuk pengalokasian IP LoadBalancer On-Premise.
 3. **Workload Resilience & Anti-Affinity**: Menerapkan **PodDisruptionBudget (PDB)**, **Pod Anti-Affinity**, dan **Topology Spread Constraints** agar Pod tersebar merata di node yang berbeda.
 4. **Operasi Node Maintenance**: Menguasai perintah `kubectl cordon`, `kubectl uncordon`, dan `kubectl drain` secara aman tanpa memicu *outage* pada aplikasi.
 5. **Manajemen etcd Snapshot & Disaster Recovery**: Melakukan *backup/restore* etcd database dan mensimulasikan *Master Node Failover* (mematikan 1 Master Node dan menguji konsistensi Quorum).

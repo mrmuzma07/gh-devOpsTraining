@@ -11,7 +11,7 @@ Di era cloud-native, mengonfigurasi server secara manual melalui klik-klik GUI a
 **Infrastructure as Code (IaC)** adalah praktik mengelola dan memprovisi infrastruktur IT (server, jaringan, storage, Kubernetes cluster) melalui file definisi kode yang *declarative*, terversi di Git, dan terotomatisasi.
 
 ### Kompetensi Utama yang Akan Anda Kuasai:
-1. **Konsep IaC & OpenTofu**: Memahami paradigma *Declarative vs Imperative*, perbedaan OpenTofu (Open Source MPLv2) vs Terraform (BUSL License), HCL Syntax, Provider, Resource, dan Variables.
+1. **Konsep IaC & OpenTofu (vSphere & Proxmox Providers)**: Memahami paradigma *Declarative vs Imperative*, HCL Syntax, Provider (`hashicorp/vsphere` untuk vCenter & `bpg/proxmox` untuk Proxmox VE), Resource, dan Variables.
 2. **State Management & Drift Detection**: Mengelola file status infrastruktur (`tofu.tfstate`), *Remote State Backend*, *State Locking*, serta mendeteksi dan memperbaiki **Infrastructure Drift** (perubahan manual tak terotorisasi pada infrastruktur).
 3. **Configuration Management dengan Ansible**: Menguasai konsep *Agentless Infrastructure Management*, Ansible Inventory, Playbook, Roles, Modules, dan sifat **Idempotency**.
 4. **End-to-End Hybrid Pipeline (OpenTofu + Ansible)**: Menggabungkan OpenTofu untuk memprovisi infrastruktur dasar dan merelay *Dynamic Inventory* ke Ansible untuk menginstal dan mengonfigurasi cluster k3s.

@@ -3,6 +3,20 @@
 Roadmap ini melanjutkan **Tahap 1 (Minggu 01-12)** setelah prasyarat pada [Tahap 0](./tahap-0/README.md) terpenuhi. Fokusnya adalah capability production yang belum cukup kuat pada mini platform dasar:
 
 
+
+## 🏢 Pemetaan Environment: Lokal Laptop vs On-Premise Production
+
+Training ini memadukan kemudahan simulasi di laptop/PC dengan kesiapan mengoperasikan infrastruktur On-Premise enterprise real:
+
+| Komponen Platform | Environment Simulasi Lokal (Laptop/PC) | Environment Production On-Premise |
+| --- | --- | --- |
+| **Virtualisasi / Compute** | Multipass / Docker Multi-node / k3d | **VMware vCenter vSphere** / **Proxmox VE** |
+| **IaC Provisioning** | OpenTofu (Local Provider / Multipass) | OpenTofu (`hashicorp/vsphere` & `bpg/proxmox`) |
+| **Konfigurasi OS & K8s** | Ansible + k3s / k3d | Ansible + RKE2 / Kubeadm / k3s |
+| **Load Balancer Service** | K3s ServiceLB (klipper-lb) / Localhost | **MetalLB** (Layer 2 ARP / BGP Mode) |
+| **Storage / CSI** | Local Path Provisioner | vSphere CSI / Proxmox Ceph RBD / NFS |
+| **Ingress & Networking** | NGINX Ingress / Traefik | Cilium eBPF + NGINX Ingress + MetalLB |
+
 ## Tujuan tahap lanjutan
 
 Pada akhir minggu 24, target platform bukan sekadar "bisa deploy", tetapi mampu:
@@ -41,8 +55,8 @@ Pada akhir minggu 24, target platform bukan sekadar "bisa deploy", tetapi mampu:
 | 10 | Incident Simulation II | CPU, memory, disk, DNS, network, latency, deadlock | Multi-signal investigation |
 | 11 | Reliability Engineering | SLI, SLO, SLA, error budget, k6 | SLO report, load test, recording rules |
 | 12 | Production Simulation | Delivery sampai incident recovery | Game day dan postmortem |
-| 13 | HA Cluster | Multi-node k3s, etcd quorum, PDB | HA cluster dan failure evidence |
-| 14 | Infrastructure as Code | OpenTofu, Ansible, state, drift | IaC starter dan generated inventory |
+| 13 | HA Cluster | Multi-node k3s/RKE2, etcd quorum, MetalLB | HA cluster, MetalLB VIP, dan failure evidence |
+| 14 | Infrastructure as Code | OpenTofu (vSphere/Proxmox), Ansible, state, drift | IaC vSphere/Proxmox starter dan inventory |
 | 15 | Security Baseline | RBAC, PSA, Kyverno, cert-manager, scanning | Security policies dan secure workload |
 | 16 | Networking | Cilium, Hubble, DNS, NetworkPolicy, egress | Traffic matrix dan network policies |
 | 17 | Autoscaling | HPA, VPA, KEDA, stabilization | Scaling manifests dan scaling curve |

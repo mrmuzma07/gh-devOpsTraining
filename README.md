@@ -6,6 +6,9 @@ konsep container dan Kubernetes, kemudian berkembang ke GitOps, observability,
 incident response, reliability engineering, high availability, security,
 autoscaling, backup, dan disaster recovery.
 
+> 🎯 **Filosofi Training: Local-to-On-Premise Production Ready**
+> Training ini dirancang agar seluruh latihan praktik dilakukan secara efisien di **laptop/PC lokal** (menggunakan OrbStack/Multipass/k3d), tetapi dengan standar dan arsitektur produksi nyata. Setelah lulus, peserta siap mengoperasikan infrastruktur **Production On-Premise Enterprise** berbasis **VMware vCenter vSphere** dan **Proxmox VE**, serta mengelola pengalokasian IP LoadBalancer menggunakan **MetalLB** (Layer 2 & BGP Mode).
+
 ## Tujuan Pembelajaran
 
 Pada akhir kurikulum, peserta diharapkan mampu:
@@ -15,8 +18,10 @@ Pada akhir kurikulum, peserta diharapkan mampu:
 - Menggunakan metrics, logs, dan traces untuk memahami kondisi sistem.
 - Menangani insiden dengan alur investigasi yang terukur.
 - Menetapkan SLI, SLO, error budget, runbook, dan postmortem.
+- Memprovisi VM di hypervisor On-Premise (**vCenter vSphere** & **Proxmox VE**) secara otomatis dengan OpenTofu & Ansible.
+- Mengonfigurasi **MetalLB** untuk menyediakan alokasi IP `Type: LoadBalancer` di infrastruktur Bare-Metal / On-Premise.
 - Mendesain platform yang high available, aman, scalable, dan dapat dipulihkan.
-- Menguji perubahan dan kegagalan secara aman di environment lab.
+- Menguji perubahan dan kegagalan secara aman di environment lab lokal sebelum diproduksikan.
 
 ## Peta Kurikulum 24 Minggu
 
@@ -106,12 +111,14 @@ Tool inti yang digunakan sepanjang kurikulum meliputi:
 - Git untuk version control, code review, dan GitOps.
 - `curl` serta utilitas DNS/socket untuk menguji konektivitas.
 - `kubectl` untuk berinteraksi dengan cluster.
-- `k3s` atau `k3d` untuk cluster Kubernetes lokal.
+- `k3s`, `k3d`, atau `Multipass` untuk simulasi cluster single-node dan multi-node lokal di laptop/PC.
+- **MetalLB** untuk pengalokasian IP LoadBalancer pada lingkungan On-Premise/Bare-metal (Layer 2 ARP & BGP).
 - OrbStack + Docker CLI untuk membuat dan menjalankan image secara lokal di macOS; gunakan runtime setara pada platform lain.
 - `helm` untuk package management dan instalasi komponen cluster.
 - GitLab dan ArgoCD untuk CI/CD serta GitOps.
 - Grafana, Mimir, Loki, Tempo, dan Alloy untuk observability.
-- OpenTofu dan Ansible untuk IaC.
+- OpenTofu (dengan provider `vsphere` & `bpg/proxmox`) serta Ansible untuk Infrastructure as Code (IaC) On-Premise.
+- VMware vCenter vSphere & Proxmox VE (konsep & arsitektur target produksi On-Premise).
 - Trivy, Cilium, KEDA, Velero, dan tool lain sesuai minggu yang dipelajari.
 
 Pastikan cluster aktif sebelum lab:
