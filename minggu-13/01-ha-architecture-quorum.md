@@ -18,13 +18,13 @@ Sebuah cluster Kubernetes dikatakan **High Available (HA)** jika sistem tetap da
 
 ```mermaid
 graph TD
-    subgraph Single Node Cluster - Single Point of Failure SPOF
+    subgraph Single_Node_Cluster_Single_Point_of_Failure_SPOF ["Single Node Cluster - Single Point of Failure SPOF"]
         S_APIServer[kube-apiserver] --> S_etcd[(etcd Single Instance)]
         S_APIServer --> S_Worker[Single Worker Node]
         style S_etcd fill:#f9f,stroke:#333,stroke-width:2px
     end
 
-    subgraph High Availability Cluster - Fault Tolerant
+    subgraph High_Availability_Cluster_Fault_Tolerant ["High Availability Cluster - Fault Tolerant"]
         VIP[Load Balancer / VIP] --> HA_API1[kube-apiserver 1]
         VIP --> HA_API2[kube-apiserver 2]
         VIP --> HA_API3[kube-apiserver 3]
@@ -94,19 +94,19 @@ Perhatikan perbandingan antara **3 Node** dan **4 Node**:
 
 ```mermaid
 graph TD
-    subgraph Network Partition Scenario - 3 Master Cluster
-        subgraph Partition A - 2 Nodes
+    subgraph Network_Partition_Scenario_3_Master_Cluster ["Network Partition Scenario - 3 Master Cluster"]
+        subgraph Partition_A_2_Nodes ["Partition A - 2 Nodes"]
             N1[Master 1 - etcd]
             N2[Master 2 - etcd]
             N1 <--> N2
             NoteA[Aktif 2/3 Nodes >= Quorum 2<br>STATUS: WRITES ALLOWED ✅]
         end
 
-        subgraph Network Cut Cable
+        subgraph Network_Cut_Cable ["Network Cut Cable"]
             Cut[⚡ KABEL JARINGAN TERPUTUS ⚡]
         end
 
-        subgraph Partition B - 1 Node
+        subgraph Partition_B_1_Node ["Partition B - 1 Node"]
             N3[Master 3 - etcd]
             NoteB[Aktif 1/3 Nodes < Quorum 2<br>STATUS: READ ONLY / WRITES REJECTED ❌]
         end
@@ -126,14 +126,14 @@ Terdapat dua pola penyebaran etcd pada Kubernetes Production:
 
 ```mermaid
 graph LR
-    subgraph Option 1: Stacked etcd Topology - Embedded in k3s/kubeadm
+    subgraph Option_1_Stacked_etcd_Topology_Embedded_in_k3s_kubeadm ["Option 1: Stacked etcd Topology - Embedded in k3s/kubeadm"]
         M1[Master Node 1<br>APIServer + etcd]
         M2[Master Node 2<br>APIServer + etcd]
         M3[Master Node 3<br>APIServer + etcd]
         M1 <--> M2 <--> M3
     end
 
-    subgraph Option 2: External etcd Topology
+    subgraph Option_2_External_etcd_Topology ["Option 2: External etcd Topology"]
         A1[APIServer Node 1]
         A2[APIServer Node 2]
         A3[APIServer Node 3]

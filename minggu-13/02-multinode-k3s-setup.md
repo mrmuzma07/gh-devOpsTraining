@@ -15,8 +15,8 @@ Setelah menyelesaikan modul ini, Anda akan mampu:
 
 ```mermaid
 graph TD
-    subgraph Host Laptop System
-        subgraph k3d Network Bridge - Docker Cluster
+    subgraph Host_Laptop_System ["Host Laptop System"]
+        subgraph k3d_Network_Bridge_Docker_Cluster ["k3d Network Bridge - Docker Cluster"]
             LB[k3d Load Balancer Proxy<br>Port 6443 -> Server 1,2,3]
 
             S1[Server Node 1: k3d-ha-cluster-server-0<br>Role: Control-Plane, Master, etcd-leader]

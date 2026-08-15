@@ -25,24 +25,24 @@ Berikut adalah alur kerja otomatisasi infrastruktur yang akan kita bangun:
 
 ```mermaid
 graph TD
-    subgraph Version Control System - Git
+    subgraph Version_Control_System_Git ["Version Control System - Git"]
         Dev[DevOps / SRE Engineer] -->|1. Git Push Code| GitRepo[Git Repository<br>tofu/ & ansible/]
     end
 
-    subgraph Phase 1: Infrastructure Provisioning - OpenTofu
+    subgraph Phase_1_Infrastructure_Provisioning_OpenTofu ["Phase 1: Infrastructure Provisioning - OpenTofu"]
         GitRepo -->|2. Tofu Init & Plan| TofuEngine[OpenTofu Engine]
         TofuEngine <-->|Read / Write State| StateFile[(tofu.tfstate Remote Backend)]
         TofuEngine -->|3. Provision Nodes| VirtualInfra[Target VMs / Docker Nodes]
         TofuEngine -->|4. Generate Dynamic Inventory| AnsibleInv[ansible_inventory.ini]
     end
 
-    subgraph Phase 2: Configuration Management - Ansible
+    subgraph Phase_2_Configuration_Management_Ansible ["Phase 2: Configuration Management - Ansible"]
         AnsibleInv -->|5. Read Target IPs| AnsibleEngine[Ansible Control Engine]
         AnsibleEngine -->|6. SSH Exec Playbook idempotently| VirtualInfra
         AnsibleEngine -->|7. Install & Configure| K3sCluster[k3s Cluster Operational]
     end
 
-    subgraph Continuous Enforcement - Drift Detection
+    subgraph Continuous_Enforcement_Drift_Detection ["Continuous Enforcement - Drift Detection"]
         Cron[Scheduled CI Job<br>Drift Check] -->|8. tofu plan -detailed-exitcode| DriftDetect{Drift Detected?}
         DriftDetect -->|Yes| Alert[Alert Discord: Manual Change Detected!]
         DriftDetect -->|No| OK[Infra Compliant ✅]

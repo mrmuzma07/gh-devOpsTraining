@@ -25,11 +25,11 @@ Berikut adalah arsitektur fisik dan logis dari HA Cluster yang akan kita simulas
 
 ```mermaid
 graph TD
-    subgraph Client & Load Balancer Layer
+    subgraph Client_Load_Balancer_Layer ["Client & Load Balancer Layer"]
         Client[Pengguna / Traffic HTTP] --> VIP[Virtual IP / HAProxy Load Balancer<br>192.168.1.100:6443]
     end
 
-    subgraph Control Plane HA Layer - 3 Master Nodes (etcd Quorum = 2)
+    subgraph Control_Plane_HA_Layer_3_Master_Nodes_etcd_Quorum_2 ["Control Plane HA Layer - 3 Master Nodes (etcd Quorum = 2)"]
         VIP --> M1[Master Node 1<br>192.168.1.11<br>kube-apiserver + etcd-1]
         VIP --> M2[Master Node 2<br>192.168.1.12<br>kube-apiserver + etcd-2]
         VIP --> M3[Master Node 3<br>192.168.1.13<br>kube-apiserver + etcd-3]
@@ -39,12 +39,12 @@ graph TD
         M3 <==>|Raft Consensus| M1
     end
 
-    subgraph Data Plane Worker Layer - 2 Worker Nodes
+    subgraph Data_Plane_Worker_Layer_2_Worker_Nodes ["Data Plane Worker Layer - 2 Worker Nodes"]
         M1 & M2 & M3 -->|Kubelet Connection| W1[Worker Node 1<br>192.168.1.21<br>Pod API Replica 1]
         M1 & M2 & M3 -->|Kubelet Connection| W2[Worker Node 2<br>192.168.1.22<br>Pod API Replica 2]
     end
 
-    subgraph Resilience Rules
+    subgraph Resilience_Rules ["Resilience Rules"]
         PDB[PodDisruptionBudget: minAvailable=1]
         Spread[TopologySpreadConstraints: maxSkew=1]
         PDB --- W1 & W2

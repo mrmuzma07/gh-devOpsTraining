@@ -16,7 +16,7 @@ Di lingkungan Kubernetes k3s, etcd snapshot secara otomatis mengambil cadangan d
 
 ```mermaid
 graph LR
-    subgraph Master Server 0
+    subgraph Master_Server_0 ["Master Server 0"]
         k3s_Process[k3s Server Process] -->|1. Trigger Snapshot| SnapshotEngine[etcd Snapshot Engine]
         SnapshotEngine -->|2. Write Binary File| Disk[Snapshot File:<br>/var/lib/rancher/k3s/server/db/snapshots/manual-backup.db]
     end
@@ -42,14 +42,14 @@ Mari kita uji ketahanan cluster HA ini dengan mensimulasikan kematian Master Nod
 
 ```mermaid
 graph TD
-    subgraph Test 1: Matikan 1 Master Node (server-0)
+    subgraph Test_1_Matikan_1_Master_Node_server_0 ["Test 1: Matikan 1 Master Node (server-0)"]
         M0[Master 0 - DEAD ❌]
         M1[Master 1 - ALIVE ✅]
         M2[Master 2 - ALIVE ✅]
         Quorum1[Aktif 2/3 Nodes >= Quorum 2<br>HASIL: CLUSTER TETAP HIDUP & WRITES OK ✅]
     end
 
-    subgraph Test 2: Matikan 2 Master Nodes (server-0 & server-1)
+    subgraph Test_2_Matikan_2_Master_Nodes_server_0_server_1 ["Test 2: Matikan 2 Master Nodes (server-0 & server-1)"]
         M0_2[Master 0 - DEAD ❌]
         M1_2[Master 1 - DEAD ❌]
         M2_2[Master 2 - ALIVE ✅]
