@@ -10,13 +10,13 @@ ArgoCD berjalan sepenuhnya di dalam cluster Kubernetes (di namespace `argocd`).
 
 ```mermaid
 graph TB
-    subgraph ArgoCD_Architecture [ArgoCD Components]
-        UI[ArgoCD Web UI & CLI] --> APIServer[API Server]
-        APIServer --> RepoServer[Repository Server\n(Clone & Parse Helm/YAML)]
-        APIServer --> AppController[Application Controller\n(Reconciliation Engine)]
+    subgraph ArgoCD_Architecture["ArgoCD Components"]
+        UI["ArgoCD Web UI & CLI"] --> APIServer["API Server"]
+        APIServer --> RepoServer["Repository Server<br/>Clone & Parse Helm/YAML"]
+        APIServer --> AppController["Application Controller<br/>Reconciliation Engine"]
 
-        RepoServer <--> Git[Git Repository\nDesired State]
-        AppController <--> K8sAPI[Kubernetes API Server\nActual State]
+        RepoServer <--> Git["Git Repository<br/>Desired State"]
+        AppController <--> K8sAPI["Kubernetes API Server<br/>Actual State"]
     end
 ```
 
