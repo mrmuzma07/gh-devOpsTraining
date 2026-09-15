@@ -10,14 +10,14 @@ Berikut adalah peta jalan lengkap bagaimana seluruh komponen yang telah Anda ban
 
 ```mermaid
 graph TD
-    subgraph Developer & CI/CD Pipeline
+    subgraph Developer_CI_CD_Pipeline ["Developer & CI/CD Pipeline"]
         Dev[Developer / SRE] -->|1. Git Push| GitLab[GitLab Repo / Runner]
         GitLab -->|2. Build & Test| Registry[Container Registry]
         GitLab -->|3. Update Manifest| GitRepo[GitOps Repository]
         GitRepo -->|4. Sync Manifest| ArgoCD[ArgoCD Controller]
     end
 
-    subgraph Kubernetes k3s Cluster - Namespace prod-app
+    subgraph Kubernetes_k3s_Cluster_Namespace_prod_app ["Kubernetes k3s Cluster - Namespace prod-app"]
         ArgoCD -->|5. Deploy / Canary| Rollout[Argo Rollouts / Deployment]
         Rollout --> GoApp[Go Order API Service]
         GoApp --> Cache[(Redis Cache)]
@@ -25,7 +25,7 @@ graph TD
         HPA[HPA / VPA Autoscaler] -.->|Autoscale| GoApp
     end
 
-    subgraph Observability & Reliability Stack - Namespace monitoring
+    subgraph Observability_Reliability_Stack_Namespace_monitoring ["Observability & Reliability Stack - Namespace monitoring"]
         Alloy[Grafana Alloy Agent] -->|Scrape Metrics| GoApp
         Alloy -->|Tail Logs| GoApp
         Alloy -->|Receive Traces| GoApp
@@ -42,7 +42,7 @@ graph TD
         Grafana -->|Visualize| Tempo
     end
 
-    subgraph Load Test & Incident Simulation
+    subgraph Load_Test_Incident_Simulation ["Load Test & Incident Simulation"]
         K6[K6 Load Testing Tool] -->|6. Traffic Load| GoApp
         Chaos[Incident Injector] -.->|7. Chaos DB Lock| DB
     end

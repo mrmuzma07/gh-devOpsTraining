@@ -34,7 +34,7 @@ Pada arsitektur modern (Docker/Kubernetes), setiap container mengalirkan log kel
 1. **`stdout` (Standard Output):** Pesan log normal (informational, request berhasil, dsb).
 2. **`stderr` (Standard Error):** Pesan peringatan hingga kesalahan fatal (panic, error, panic exception).
 
-Baik `stdout` maupun `stderr` akan **di-capture secara otomatis** oleh *Container Runtime* (containerd/Podman) pada saat aplikasi berjalan, lalu diteruskan ke kubelet.
+Baik `stdout` maupun `stderr` akan **di-capture secara otomatis** oleh *Container Runtime* (misalnya containerd pada node Kubernetes atau OrbStack saat development lokal) pada saat aplikasi berjalan, lalu diteruskan ke kubelet.
 
 ---
 

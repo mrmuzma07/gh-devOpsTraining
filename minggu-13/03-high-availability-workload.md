@@ -20,7 +20,7 @@ Banyak pemula DevOps beranggapan bahwa cukup menentukan `replicas: 3` pada Deplo
 
 ```mermaid
 graph TD
-    subgraph BAD PRACTICE: High Risk Stacking
+    subgraph BAD_PRACTICE_High_Risk_Stacking ["BAD PRACTICE: High Risk Stacking"]
         W1_BAD[Worker Node 1] --> Pod1_BAD[Pod Replica 1]
         W1_BAD --> Pod2_BAD[Pod Replica 2]
         W1_BAD --> Pod3_BAD[Pod Replica 3]
@@ -28,7 +28,7 @@ graph TD
         style W1_BAD fill:#ffcccc,stroke:#ff0000
     end
 
-    subgraph GOOD PRACTICE: HA Topology Spread + PDB
+    subgraph GOOD_PRACTICE_HA_Topology_Spread_PDB ["GOOD PRACTICE: HA Topology Spread + PDB"]
         W1_GOOD[Worker Node 1] --> Pod1_GOOD[Pod Replica 1]
         W2_GOOD[Worker Node 2] --> Pod2_GOOD[Pod Replica 2]
         W1_GOOD & W2_GOOD --- PDB_Rule[PodDisruptionBudget: minAvailable=1]

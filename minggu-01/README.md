@@ -12,9 +12,9 @@ Materi Minggu 1 dibagi menjadi 5 modul dokumen dan 1 direktori manifest YAML:
 
 | No | Dokumen Modul | Deskripsi Topik | Jenis |
 | :---: | :--- | :--- | :---: |
-| 01 | [Modul 01: Konsep Container & OCI](./01-konsep-container.md) | Container vs VM, OCI, Podman, Image Layer & Lifecycle | 📖 Teori |
+| 01 | [Modul 01: Konsep Container & OCI](./01-konsep-container.md) | Container vs VM, OCI, OrbStack, Image Layer & Lifecycle | 📖 Teori |
 | 02 | [Modul 02: Arsitektur Kubernetes & k3s](./02-arsitektur-kubernetes.md) | Control Plane, Worker Node, Pod & Pod Lifecycle | 📖 Teori |
-| 03 | [Modul 03: Instalasi & Persiapan Environment](./03-instalasi-persiapan.md) | Panduan instalasi Podman, k3s/k3d, & kubectl | 🛠️ Praktik |
+| 03 | [Modul 03: Instalasi & Persiapan Environment](./03-instalasi-persiapan.md) | Panduan instalasi OrbStack (macOS), k3s/k3d, & kubectl | 🛠️ Praktik |
 | 04 | [Modul 04: Perintah Dasar CLI kubectl](./04-perintah-dasar-kubectl.md) | Menguasai `get`, `describe`, `logs`, `exec`, & `top` | 🛠️ Praktik |
 | 05 | [Modul 05: Lab Hands-on Deploy Nginx](./05-lab-hands-on.md) | Step-by-step deploy Nginx via YAML & Auto-Healing Test | 🧪 Lab |
 | 📂 | [Manifests YAML](./manifests/) | File YAML `01-namespace`, `02-deployment`, `03-service`, `04-ingress` | 💻 Code |
@@ -26,9 +26,9 @@ Materi Minggu 1 dibagi menjadi 5 modul dokumen dan 1 direktori manifest YAML:
 Gunakan checklist ini untuk memantau kemajuan belajar Anda minggu ini:
 
 - [ ] Memahami perbedaan fundamental antara Container dan Virtual Machine (VM).
-- [ ] Memahami alasan memilih Podman (*Daemonless & Rootless*) dibanding Docker klasik.
+- [ ] Memahami peran OrbStack sebagai runtime container lokal macOS dan Docker-compatible CLI.
 - [ ] Memahami fungsi komponen Control Plane (API Server, etcd, Scheduler) dan Worker Node (kubelet).
-- [ ] Berhasil menginstal `Podman`, `k3s` (atau `k3d`), dan `kubectl` di laptop lokal.
+- [ ] Berhasil menyiapkan `OrbStack` (macOS), `k3s` (atau `k3d`), dan `kubectl` di laptop lokal.
 - [ ] Mampu menjalankan perintah `kubectl get`, `describe`, `logs`, `exec`, dan `top` serta membaca outputnya.
 - [ ] Berhasil melakukan deploy Nginx dari file YAML buatan sendiri (`Namespace` → `Deployment` → `Service` → `Ingress`).
 - [ ] Membuktikan fitur *Auto-healing* Kubernetes dengan sengaja menghapus Pod Nginx.

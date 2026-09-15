@@ -29,7 +29,7 @@ Materi Minggu 2 dibagi menjadi 5 modul dokumen, 1 direktori manifest YAML, dan 1
 - [ ] Mampu mengelola kredensial & rahasia menggunakan **Secret** (Base64).
 - [ ] Memahami cara kerja penyimpanan data persisten dengan **PersistentVolumeClaim (PVC)** dan **StorageClass** `local-path`.
 - [ ] Mampu mengonfigurasi **Startup**, **Liveness**, dan **Readiness Probe** pada file YAML Deployment.
-- [ ] Berhasil mem-build OCI Image Go App dengan Podman dan mem-deploy-nya ke cluster `k3s`.
+- [ ] Berhasil mem-build OCI Image Go App dengan Docker CLI dari OrbStack (macOS) dan mem-deploy-nya ke cluster `k3s`.
 - [ ] Mampu melakukan troubleshooting insiden `Readiness Probe Failed` menggunakan `kubectl describe` dan `kubectl logs`.
 
 ---

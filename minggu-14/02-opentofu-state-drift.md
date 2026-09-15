@@ -33,13 +33,13 @@ Di lingkungan produksi dengan banyak engineer (tim SRE), menyimpan `tofu.tfstate
 
 ```mermaid
 graph TD
-    subgraph Multi-Engineer Team Problem - Local State
+    subgraph Multi_Engineer_Team_Problem_Local_State ["Multi-Engineer Team Problem - Local State"]
         Eng1[Engineer A Laptop<br>Punya state.json lokal] -->|Simultaneous Apply| AWS1[Cloud API]
         Eng2[Engineer B Laptop<br>State lokal beda/outdated] -->|Simultaneous Apply| AWS1
         AWS1 --> RaceCondition[❌ RACE CONDITION & STATE CORRUPTION!]
     end
 
-    subgraph Recommended Production Setup - Remote State + Locking
+    subgraph Recommended_Production_Setup_Remote_State_Locking ["Recommended Production Setup - Remote State + Locking"]
         EngA[Engineer A] -->|1. Acquire Lock| LockDB[(State Lock DB: DynamoDB / Consul)]
         EngB[Engineer B] -->|Lock Rejected 🔒| LockDB
         EngA <-->|Read / Write State| S3[(Remote State Storage: AWS S3 / MinIO)]

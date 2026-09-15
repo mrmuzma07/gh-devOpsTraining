@@ -1,6 +1,6 @@
 # Modul 04: Lab Hands-on — Deploy Go App Production-Ready
 
-> **Target Pembelajaran:** Membangun OCI Image aplikasi Go buatan sendiri menggunakan Podman, memasukkannya ke cluster k3s, dan mengintegrasikan **ConfigMap, Secret, PVC, serta Health Checks (Probes)** secara lengkap tanpa Helm.
+> **Target Pembelajaran:** Membangun OCI Image aplikasi Go buatan sendiri menggunakan Docker CLI dari OrbStack (macOS), memasukkannya ke cluster k3s, dan mengintegrasikan **ConfigMap, Secret, PVC, serta Health Checks (Probes)** secara lengkap tanpa Helm.
 
 ---
 
@@ -8,7 +8,7 @@
 
 ```mermaid
 graph TD
-    Build[1. Podman Build\ngo-app:v1.0.0] --> Import[2. Import Image ke k3s/k3d]
+    Build[1. OrbStack Docker Build\ngo-app:v1.0.0] --> Import[2. Import Image ke k3s/k3d]
     Import --> ApplyConfig[3. Apply ConfigMap, Secret, & PVC]
     ApplyConfig --> ApplyDeploy[4. Apply Deployment & Service]
     ApplyDeploy --> Test[5. Uji API, Secret, & Persistent Storage]
@@ -18,17 +18,23 @@ graph TD
 
 ## 2. Langkah Demi Langkah
 
-### Langkah 1: Build Image Aplikasi Go dengan Podman
+### Langkah 1: Build Image Aplikasi Go dengan OrbStack
 
-Buka terminal dan navigasikan ke root folder repository:
+Pada macOS, pastikan OrbStack sedang berjalan dan Docker CLI mengarah ke
+context OrbStack (`docker context ls`). Buka terminal dan navigasikan ke root
+folder repository:
 
 ```bash
-# 1. Build image dari Dockerfile di folder minggu-02/app/
-podman build -t go-app:v1.0.0 minggu-02/app/
+# 1. Build OCI image dari Dockerfile di folder minggu-02/app/
+docker build -t go-app:v1.0.0 minggu-02/app/
 
-# 2. Verifikasi image di Podman lokal
-podman images | grep go-app
+# 2. Verifikasi image di OrbStack melalui Docker-compatible CLI
+docker images | grep go-app
 ```
+
+> Jika menggunakan Linux atau Windows, jalankan command yang sama dengan
+> Docker-compatible engine yang tersedia. Yang penting image `go-app:v1.0.0`
+> dapat dibaca oleh `k3d` dan mengikuti format OCI.
 
 ---
 
@@ -43,7 +49,7 @@ Agar k3s dapat menemukan image `go-app:v1.0.0` lokal tanpa perlu mem-push ke Doc
 
 - **Jika Menggunakan `k3s` Native (Linux):**
   ```bash
-  podman save go-app:v1.0.0 -o go-app.tar
+  docker save go-app:v1.0.0 -o go-app.tar
   sudo k3s ctr images import go-app.tar
   rm go-app.tar
   ```

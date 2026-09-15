@@ -15,11 +15,11 @@ Sebelum mempelajari tool IaC, penting untuk memahami dua pendekatan fundamental 
 
 ```mermaid
 graph TD
-    subgraph Imperative Approach - Bash Scripting / Imperative CLI
+    subgraph Imperative_Approach_Bash_Scripting_Imperative_CLI ["Imperative Approach - Bash Scripting / Imperative CLI"]
         Imp[Perintah Imperatif:<br>1. Create VM<br>2. Install Docker<br>3. Run Container] --> Imp_Problem[Masalah: Jika dijalankan 2x,<br>akan error 'Resource already exists'!]
     end
 
-    subgraph Declarative Approach - OpenTofu / Terraform HCL
+    subgraph Declarative_Approach_OpenTofu_Terraform_HCL ["Declarative Approach - OpenTofu / Terraform HCL"]
         Dec[Deklarasi Kode HCL:<br>'Saya ingin 3 Pod NGINX running'] --> Engine[OpenTofu Engine]
         Engine --> CheckCurrent[Cek Kondisi Saat Ini vs Target]
         CheckCurrent -->|Jika baru ada 1| Add2[Tambah 2 Pod]

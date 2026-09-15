@@ -12,7 +12,7 @@ Pada modul Minggu 13 ini, Anda akan mempelajari bagaimana merancang, membangun, 
 
 ### Kompetensi Utama yang Akan Anda Kuasai:
 1. **Teori & Konsep HA Cluster**: Memahami etcd Raft Distributed Consensus, perhitungan **Quorum** ($Q = \lfloor N/2 \rfloor + 1$), dan pencegahan **Split-Brain Syndrome**.
-2. **Setup Multi-Node k3s Cluster**: Mengkonfigurasi 3 Master Node (Control Plane dengan Embedded etcd) + 2 Worker Node di laptop menggunakan `k3d` / `multipass` / `Docker multi-node`.
+2. **Setup Multi-Node k3s/RKE2 Cluster & MetalLB**: Mengkonfigurasi 3 Master Node (Control Plane dengan Embedded etcd) + 2 Worker Node menggunakan `multipass` / `k3d` di laptop, serta mengonfigurasi **MetalLB** (Layer 2 IPAddressPool) untuk pengalokasian IP LoadBalancer On-Premise.
 3. **Workload Resilience & Anti-Affinity**: Menerapkan **PodDisruptionBudget (PDB)**, **Pod Anti-Affinity**, dan **Topology Spread Constraints** agar Pod tersebar merata di node yang berbeda.
 4. **Operasi Node Maintenance**: Menguasai perintah `kubectl cordon`, `kubectl uncordon`, dan `kubectl drain` secara aman tanpa memicu *outage* pada aplikasi.
 5. **Manajemen etcd Snapshot & Disaster Recovery**: Melakukan *backup/restore* etcd database dan mensimulasikan *Master Node Failover* (mematikan 1 Master Node dan menguji konsistensi Quorum).
@@ -25,11 +25,11 @@ Berikut adalah arsitektur fisik dan logis dari HA Cluster yang akan kita simulas
 
 ```mermaid
 graph TD
-    subgraph Client & Load Balancer Layer
+    subgraph Client_Load_Balancer_Layer ["Client & Load Balancer Layer"]
         Client[Pengguna / Traffic HTTP] --> VIP[Virtual IP / HAProxy Load Balancer<br>192.168.1.100:6443]
     end
 
-    subgraph Control Plane HA Layer - 3 Master Nodes (etcd Quorum = 2)
+    subgraph Control_Plane_HA_Layer_3_Master_Nodes_etcd_Quorum_2 ["Control Plane HA Layer - 3 Master Nodes (etcd Quorum = 2)"]
         VIP --> M1[Master Node 1<br>192.168.1.11<br>kube-apiserver + etcd-1]
         VIP --> M2[Master Node 2<br>192.168.1.12<br>kube-apiserver + etcd-2]
         VIP --> M3[Master Node 3<br>192.168.1.13<br>kube-apiserver + etcd-3]
@@ -39,12 +39,12 @@ graph TD
         M3 <==>|Raft Consensus| M1
     end
 
-    subgraph Data Plane Worker Layer - 2 Worker Nodes
+    subgraph Data_Plane_Worker_Layer_2_Worker_Nodes ["Data Plane Worker Layer - 2 Worker Nodes"]
         M1 & M2 & M3 -->|Kubelet Connection| W1[Worker Node 1<br>192.168.1.21<br>Pod API Replica 1]
         M1 & M2 & M3 -->|Kubelet Connection| W2[Worker Node 2<br>192.168.1.22<br>Pod API Replica 2]
     end
 
-    subgraph Resilience Rules
+    subgraph Resilience_Rules ["Resilience Rules"]
         PDB[PodDisruptionBudget: minAvailable=1]
         Spread[TopologySpreadConstraints: maxSkew=1]
         PDB --- W1 & W2

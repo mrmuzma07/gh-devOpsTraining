@@ -1,6 +1,6 @@
 # Modul 01: Fundamental Container & OCI
 
-> **Target Pembelajaran:** Memahami perbedaan Container vs Virtual Machine, konsep dasar OCI Image, cara kerja Image Layer, Podman, serta Siklus Hidup Container (Container Lifecycle) dalam bahasa yang ramah pemula.
+> **Target Pembelajaran:** Memahami perbedaan Container vs Virtual Machine, konsep dasar OCI Image, cara kerja Image Layer, OrbStack sebagai runtime container lokal di macOS, serta Siklus Hidup Container (Container Lifecycle) dalam bahasa yang ramah pemula.
 
 ---
 
@@ -47,9 +47,9 @@ graph TD
     end
 
     subgraph Container_Engine [Container - Ringan & Cepat]
-        AppC[App 1] --> Engine[Container Engine Podman/Docker]
+        AppC[App 1] --> Engine[OrbStack + Docker CLI]
         AppD[App 2] --> Engine
-        Engine --> HostKernel[Host OS Kernel & Hardware]
+        Engine --> HostKernel[Linux VM Kernel & Hardware]
     end
 ```
 
@@ -74,31 +74,37 @@ OCI menetapkan 2 standar utama:
 1. **OCI Image Specification:** Standar format paket gambar container (bagaimana file dipaketkan).
 2. **OCI Runtime Specification:** Standar cara menjalankan container (bagaimana proses diisolasi pada kernel).
 
-Dampaknya, image yang dibuat menggunakan Docker dapat dijalankan dengan **Podman**, **crio**, **containerd**, atau **k3s/Kubernetes** tanpa modifikasi sama sekali!
+Dampaknya, image yang dibuat menggunakan Docker atau OrbStack dapat dijalankan dengan **containerd**, **CRI-O**, atau **k3s/Kubernetes** tanpa modifikasi selama image tersebut mengikuti standar OCI.
 
 ---
 
-## 4. Mengenal Podman: Mengapa Podman?
+## 4. Mengenal OrbStack: Runtime Container Lokal untuk macOS
 
-Dalam modul ini, kita menggunakan **Podman** sebagai Container Engine utama.
+Dalam modul ini, kita menggunakan **OrbStack** sebagai runtime container lokal di macOS. OrbStack menjalankan lingkungan Linux yang ringan di belakang layar dan menyediakan Docker-compatible engine, sehingga command praktik menggunakan `docker` tetap kompatibel dengan tool ekosistem container dan k3d.
 
 ```
-       Docker (Klasik)                    Podman (Modern & Secure)
+       OrbStack di macOS                    Kubernetes di k3s/k3d
   ┌────────────────────────┐             ┌────────────────────────┐
-  │   CLI (docker run)     │             │   CLI (podman run)     │
+  │  Docker CLI             │             │  containerd / CRI       │
+  │  docker build/run       │             │  Pod menjalankan image   │
   └───────────┬────────────┘             └───────────┬────────────┘
-              │ Socket                               │ Direct Process
-              ▼                                      ▼
+              │ Docker API / OCI                       │ OCI Image
+              ▼                                        ▼
   ┌────────────────────────┐             ┌────────────────────────┐
-  │ Docker Daemon (root)   │             │   Fork/Exec (Non-root) │
+  │ OrbStack Linux VM      │             │ Kubernetes Node Runtime │
+  │ Container runtime      │             │ (k3s/containerd)        │
   └────────────────────────┘             └────────────────────────┘
 ```
 
-**Mengapa Memilih Podman daripada Docker?**
-1. **Daemonless (Tanpa Daemon Tunggal):** Docker mengandalkan `dockerd` yang selalu berjalan sebagai `root`. Jika daemon mati, seluruh container ikut mati. Podman berjalan sebagai proses mandiri (*fork-exec model*).
-2. **Rootless (Lebih Aman):** Podman dapat membuat dan menjalankan container tanpa privilege root (user biasa), meningkatkan keamanan sistem secara drastis.
-3. **K8s-Friendly:** Podman mendukung pembuatan manifest Kubernetes YAML secara native (`podman generate kube` / `podman play kube`).
-4. **Kompatibilitas CLI:** Perintah Podman identik dengan Docker. Anda bisa membuat alias `alias docker=podman`.
+**Mengapa Memilih OrbStack untuk Lab Lokal?**
+1. **Integrasi macOS:** OrbStack menyediakan Linux VM yang ringan untuk menjalankan container dan tool Linux tanpa mengelola VM secara manual.
+2. **Docker-compatible CLI:** Perintah `docker build`, `docker run`, `docker images`, dan `docker save` dapat digunakan oleh materi dan mudah diintegrasikan dengan k3d.
+3. **OCI-compatible:** Image yang dibuat tetap mengikuti format OCI dan dapat dipindahkan ke registry atau diimpor ke k3s/Kubernetes.
+4. **Batasan platform:** OrbStack ditujukan terutama untuk macOS. Pada Linux gunakan k3s native atau runtime container yang tersedia; pada Windows gunakan Docker Desktop/WSL2 atau alternatif yang disetujui tim.
+
+OrbStack adalah runtime lokal, bukan pengganti builder di GitLab CI. Pipeline CI pada modul berikut tetap menggunakan builder yang tersedia di runner Linux, seperti Podman atau Kaniko.
+
+> Untuk detail instalasi dan verifikasi OrbStack, lihat [Panduan Instalasi & Persiapan Environment](./03-instalasi-persiapan.md).
 
 ---
 
@@ -131,20 +137,20 @@ Proses container melalui beberapa tahapan state utama:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Created: podman create
-    Created --> Running: podman start
-    Running --> Paused: podman pause
-    Paused --> Running: podman unpause
-    Running --> Stopped: podman stop / process exit
-    Stopped --> Running: podman start
-    Stopped --> [*]: podman rm
+    [*] --> Created: docker create
+    Created --> Running: docker start
+    Running --> Paused: docker pause
+    Paused --> Running: docker unpause
+    Running --> Stopped: docker stop / process exit
+    Stopped --> Running: docker start
+    Stopped --> [*]: docker rm
 ```
 
 ### Penjelasan State:
 - **Created:** Container sudah dibuat (layer writable siap), tetapi proses utama aplikasi belum berjalan.
 - **Running:** Proses aplikasi sedang aktif berjalan di dalam CPU & Memory host.
 - **Paused:** Proses dalam container di-suspend (diberhentikan sementara di memory).
-- **Stopped:** Proses utama telah berhenti (misal via `podman stop` atau aplikasi exit 0/1).
+- **Stopped:** Proses utama telah berhenti (misal via `docker stop` atau aplikasi exit 0/1).
 - **Destroyed (Removed):** Container beserta Writable Layer-nya dihapus permanen dari storage disk.
 
 ---
@@ -153,5 +159,5 @@ stateDiagram-v2
 
 - **Container** mengisolasi aplikasi di tingkat OS Kernel, membuatnya jauh lebih ringan & cepat dibanding VM.
 - Standardisasi **OCI** menjamin interoperabilitas container engine.
-- **Podman** menawarkan solusi container modern: *Daemonless*, *Rootless*, dan *Kubernetes Native*.
+- **OrbStack** menyediakan runtime container lokal yang terintegrasi dengan macOS dan Docker-compatible CLI.
 - **Image Layer** memanfaatkan mekanisme *Copy-on-Write* sehingga penggunaan storage disk sangat hemat.

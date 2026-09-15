@@ -15,19 +15,19 @@ Di tim SRE enterprise, tidak ada seorang pun yang boleh mengeksekusi `tofu apply
 
 ```mermaid
 graph TD
-    subgraph Git Pull Request Workflow
+    subgraph Git_Pull_Request_Workflow ["Git Pull Request Workflow"]
         Dev[SRE Developer] -->|1. Git Push Branch| PR[Open Pull Request]
         PR -->|2. Trigger CI Stage 1-3| CI[GitLab CI / GitHub Actions]
     end
 
-    subgraph CI Pipeline Stages
+    subgraph CI_Pipeline_Stages ["CI Pipeline Stages"]
         CI --> Stage1[Stage 1: tofu fmt -check<br>Cek Format Kode]
         Stage1 --> Stage2[Stage 2: tofu validate<br>Cek Validitas Sintaksis]
         Stage2 --> Stage3[Stage 3: tofu plan -out=tfplan<br>Generate Plan Speculative]
         Stage3 --> PR_Comment[Post Output tofu plan ke PR Comment]
     end
 
-    subgraph Approval & Deployment
+    subgraph Approval_Deployment ["Approval & Deployment"]
         PR_Comment --> PeerReview{Senior SRE Approved?}
         PeerReview -->|Yes: Merge to Main| Stage4[Stage 4: tofu apply tfplan<br>Manual Approval Gate]
         Stage4 --> InfraUpdate[Infrastructure Updated in Production]

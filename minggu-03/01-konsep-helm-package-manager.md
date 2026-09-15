@@ -34,7 +34,9 @@ Helm dibangun di atas 3 komponen fundamental:
 
 ```mermaid
 graph LR
-    Chart[1. Chart\nTemplate Blueprint] + Values[2. Values.yaml\nVariabel Parameter] -->|helm install| Release[3. Release\nInstansi Aktif di Cluster]
+    Chart["1. Chart<br>Template Blueprint"] --> Gabung((+))
+    Values["2. Values.yaml<br>Variabel Parameter"] --> Gabung
+    Gabung -->|helm install| Release["3. Release<br>Instansi Aktif di Cluster"]
 ```
 
 1. **Chart (Paket Blueprint):**

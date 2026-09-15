@@ -1,6 +1,6 @@
 # Modul 03: Panduan Instalasi & Persiapan Environment
 
-> **Target Pembelajaran:** Berhasil menginstal Podman, k3s (atau k3d), dan kubectl di laptop lokal serta memverifikasi bahwa cluster K8s siap digunakan.
+> **Target Pembelajaran:** Berhasil menyiapkan OrbStack (macOS), k3s (atau k3d), dan kubectl di laptop lokal serta memverifikasi bahwa cluster K8s siap digunakan.
 
 ---
 
@@ -13,40 +13,50 @@ Sebelum memulai instalasi, pastikan laptop Anda memenuhi spesifikasi minimum ber
 
 ---
 
-## 2. Langkah 1: Instalasi Podman
+## 2. Langkah 1: Instalasi OrbStack (macOS)
 
-Podman digunakan sebagai Container Engine lokal untuk memasang, menguji, dan membangun OCI image.
+OrbStack digunakan sebagai runtime container dan Linux VM lokal untuk memasang,
+menguji, dan membangun OCI image. OrbStack menyediakan Docker-compatible engine,
+sehingga command pada lab menggunakan `docker`.
 
 ### A. macOS (via Homebrew)
 ```bash
-# 1. Install Podman via brew
-brew install podman
+# 1. Install OrbStack
+brew install --cask orbstack
 
-# 2. Inisialisasi & jalankan Podman Virtual Machine
-podman machine init
-podman machine start
+# 2. Buka OrbStack dari Applications, lalu tunggu sampai statusnya Running
+open -a OrbStack
 
-# 3. Verifikasi instalasi
-podman info
+# 3. Verifikasi Docker-compatible engine
+docker version
+docker info
 ```
 
-### B. Linux (Ubuntu / Debian)
-```bash
-# Install podman langsung dari package manager
-sudo apt update
-sudo apt install -y podman
+> Jika shell belum menemukan command `docker`, tutup dan buka kembali terminal
+> setelah OrbStack selesai melakukan setup. Pastikan Docker CLI diarahkan ke
+> context OrbStack dengan command berikut:
+>
+> ```bash
+> docker context ls
+> docker context use orbstack
+> ```
+>
+> Jika nama context berbeda pada versi OrbStack Anda, pilih context yang
+> menunjuk ke Docker socket OrbStack.
 
-# Verifikasi instalasi
-podman info
-```
+### B. Linux (k3s native)
+OrbStack ditujukan terutama untuk macOS. Pada Linux, gunakan k3s native dan
+runtime container yang tersedia di distribusi Anda. Tidak ada langkah
+`orbctl`/OrbStack yang diperlukan untuk jalur ini.
 
-### C. Windows (via WSL2)
-Buka terminal WSL2 (Ubuntu):
-```bash
-sudo apt update
-sudo apt install -y podman
-podman info
-```
+### C. Windows (WSL2 atau runtime setara)
+OrbStack bukan target platform Windows pada materi ini. Gunakan Docker Desktop
+atau runtime container yang disediakan melalui WSL2, lalu pastikan command
+`docker version` dan `docker info` berhasil sebelum melanjutkan.
+
+Image yang dibuat melalui Docker-compatible engine tetap mengikuti standar OCI.
+Karena itu image dapat diimpor ke k3d atau dipush ke registry seperti image dari
+runtime container lainnya.
 
 ---
 
@@ -90,8 +100,10 @@ sudo chown $(id -u):$(id -g) ~/.kube/config
 export KUBECONFIG=~/.kube/config
 ```
 
-### Opsi B: macOS / Windows / Multi-platform (`k3d` - k3s di dalam Container/Podman)
-`k3d` adalah wrapper ringan untuk menjalankan cluster `k3s` di dalam container Docker/Podman.
+### Opsi B: macOS / Windows / Multi-platform (`k3d` - k3s di dalam container)
+`k3d` adalah wrapper ringan untuk menjalankan cluster `k3s` di dalam container.
+Pada macOS, k3d menggunakan Docker-compatible engine dari OrbStack; pada
+platform lain gunakan runtime container yang tersedia.
 
 ```bash
 # 1. Install k3d
@@ -110,6 +122,17 @@ k3d cluster create mini-prod --agents 1
 ---
 
 ## 5. Verifikasi Cluster (Sanity Check)
+
+Jika memakai OrbStack + k3d pada macOS, pastikan Docker-compatible engine
+OrbStack aktif sebelum membuat cluster:
+
+```bash
+docker info
+k3d cluster list
+```
+
+Perintah tersebut hanya membaca status runtime dan daftar cluster yang ada; buat
+cluster lab sesuai kebutuhan modul yang sedang dipelajari.
 
 Setelah memasang k3s, lakukan verifikasi koneksi cluster dengan perintah berikut:
 

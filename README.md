@@ -6,6 +6,9 @@ konsep container dan Kubernetes, kemudian berkembang ke GitOps, observability,
 incident response, reliability engineering, high availability, security,
 autoscaling, backup, dan disaster recovery.
 
+> 🎯 **Filosofi Training: Local-to-On-Premise Production Ready**
+> Training ini dirancang agar seluruh latihan praktik dilakukan secara efisien di **laptop/PC lokal** (menggunakan OrbStack/Multipass/k3d), tetapi dengan standar dan arsitektur produksi nyata. Setelah lulus, peserta siap mengoperasikan infrastruktur **Production On-Premise Enterprise** berbasis **VMware vCenter vSphere** dan **Proxmox VE**, serta mengelola pengalokasian IP LoadBalancer menggunakan **MetalLB** (Layer 2 & BGP Mode).
+
 ## Tujuan Pembelajaran
 
 Pada akhir kurikulum, peserta diharapkan mampu:
@@ -15,10 +18,28 @@ Pada akhir kurikulum, peserta diharapkan mampu:
 - Menggunakan metrics, logs, dan traces untuk memahami kondisi sistem.
 - Menangani insiden dengan alur investigasi yang terukur.
 - Menetapkan SLI, SLO, error budget, runbook, dan postmortem.
+- Memprovisi VM di hypervisor On-Premise (**vCenter vSphere** & **Proxmox VE**) secara otomatis dengan OpenTofu & Ansible.
+- Mengonfigurasi **MetalLB** untuk menyediakan alokasi IP `Type: LoadBalancer` di infrastruktur Bare-Metal / On-Premise.
 - Mendesain platform yang high available, aman, scalable, dan dapat dipulihkan.
-- Menguji perubahan dan kegagalan secara aman di environment lab.
+- Menguji perubahan dan kegagalan secara aman di environment lab lokal sebelum diproduksikan.
 
 ## Peta Kurikulum 24 Minggu
+
+> **Untuk pemula:** selesaikan **Tahap 0** terlebih dahulu. Tahap ini bukan bagian dari hitungan 24 minggu, tetapi menjadi prasyarat agar materi Tahap 1 dapat diikuti dengan nyaman.
+
+### Tahap 0: Prasyarat SRE dan DevOps
+
+Tahap 0 membangun fondasi yang sering diasumsikan sudah dikuasai: Linux dan terminal, networking, Git, otomasi CLI, serta metode troubleshooting. Materi lengkap dan checklist kelulusan tersedia di [direktori Tahap 0](./tahap-0/README.md).
+
+| Modul | Fokus | Materi |
+| --- | --- | --- |
+| 1 | Linux dan Terminal | Shell, filesystem, permission, proses, service, package manager, dan SSH | [Modul Linux](./tahap-0/01-linux-dan-terminal.md) |
+| 2 | Networking Dasar | IP, DNS, port, TCP/UDP, HTTP/TLS, routing, proxy, dan tools diagnosis | [Modul Networking](./tahap-0/02-networking-dasar.md) |
+| 3 | Git dan Workflow | Repository, commit, branch, merge/rebase, conflict, remote, pull request, dan recovery | [Modul Git](./tahap-0/03-git-dan-workflow.md) |
+| 4 | Otomasi dan Tooling | YAML, JSON, environment variable, shell script, CLI, dan membaca dokumentasi | [Modul Otomasi](./tahap-0/04-otomasi-dan-tooling.md) |
+| 5 | Praktik Troubleshooting | Hipotesis, observasi, mitigasi, rollback, runbook, dan postmortem | [Modul Troubleshooting](./tahap-0/05-praktik-troubleshooting.md) |
+
+**Acceptance gate:** sebelum lanjut, pastikan Anda dapat menggunakan terminal Linux, mendiagnosis koneksi HTTP sederhana, membuat dan memulihkan perubahan Git, membaca YAML/JSON, serta menulis langkah troubleshooting yang dapat diulang.
 
 ### Tahap 1: Fondasi Platform (Minggu 1-4)
 
@@ -86,13 +107,18 @@ yang ditemukan.
 
 Tool inti yang digunakan sepanjang kurikulum meliputi:
 
+- Linux shell dan utilitas CLI dasar untuk menjalankan latihan serta diagnosis.
+- Git untuk version control, code review, dan GitOps.
+- `curl` serta utilitas DNS/socket untuk menguji konektivitas.
 - `kubectl` untuk berinteraksi dengan cluster.
-- `k3s` atau `k3d` untuk cluster Kubernetes lokal.
-- Podman atau Docker untuk membuat dan menjalankan image.
+- `k3s`, `k3d`, atau `Multipass` untuk simulasi cluster single-node dan multi-node lokal di laptop/PC.
+- **MetalLB** untuk pengalokasian IP LoadBalancer pada lingkungan On-Premise/Bare-metal (Layer 2 ARP & BGP).
+- OrbStack + Docker CLI untuk membuat dan menjalankan image secara lokal di macOS; gunakan runtime setara pada platform lain.
 - `helm` untuk package management dan instalasi komponen cluster.
 - GitLab dan ArgoCD untuk CI/CD serta GitOps.
 - Grafana, Mimir, Loki, Tempo, dan Alloy untuk observability.
-- OpenTofu dan Ansible untuk IaC.
+- OpenTofu (dengan provider `vsphere` & `bpg/proxmox`) serta Ansible untuk Infrastructure as Code (IaC) On-Premise.
+- VMware vCenter vSphere & Proxmox VE (konsep & arsitektur target produksi On-Premise).
 - Trivy, Cilium, KEDA, Velero, dan tool lain sesuai minggu yang dipelajari.
 
 Pastikan cluster aktif sebelum lab:
@@ -169,9 +195,11 @@ dipahami.
 
 ### Jalur pemula
 
-Selesaikan Minggu 1-4 terlebih dahulu. Fokus pada Kubernetes, deployment
-aplikasi, Helm, dan GitOps. Jangan memasang seluruh observability stack sebelum
-workload dasar dapat di-deploy dan di-debug secara manual.
+Mulai dari [Tahap 0](./tahap-0/README.md), terutama modul Linux, Networking, dan Git.
+Setelah acceptance gate terpenuhi, lanjutkan Minggu 1-4 dengan fokus pada
+Kubernetes, deployment aplikasi, Helm, dan GitOps. Jangan memasang seluruh
+observability stack sebelum workload dasar dapat di-deploy dan di-debug secara
+manual.
 
 ### Jalur observability dan operasi
 

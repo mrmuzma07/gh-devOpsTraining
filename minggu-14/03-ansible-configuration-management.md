@@ -16,11 +16,11 @@ Di industri SRE/DevOps, terdapat aturan emas (*Golden Rule*) dalam mengotomatisk
 
 ```mermaid
 graph TD
-    subgraph Phase 1: Infrastructure Provisioning - OpenTofu
+    subgraph Phase_1_Infrastructure_Provisioning_OpenTofu ["Phase 1: Infrastructure Provisioning - OpenTofu"]
         Tofu[OpenTofu] -->|Buat VM, Virtual Network, Storage, Security Group| Infra[Bare Infrastructure / Raw Nodes]
     end
 
-    subgraph Phase 2: Configuration Management - Ansible
+    subgraph Phase_2_Configuration_Management_Ansible ["Phase 2: Configuration Management - Ansible"]
         Infra --> Ansible[Ansible Engine]
         Ansible -->|Install Software Packages, Hardening OS, Edit Config Files| ReadyNode[Production Ready Service / Cluster Node]
     end
@@ -45,7 +45,7 @@ Ansible tampil beda dengan arsitektur **Agentless**: Control Node (laptop Anda) 
 
 ```mermaid
 graph LR
-    subgraph Control Node - Laptop SRE
+    subgraph Control_Node_Laptop_SRE ["Control Node - Laptop SRE"]
         Playbook[Ansible Playbook site.yml] --> Engine[Ansible Engine]
         Inventory[Ansible Inventory hosts.ini] --> Engine
     end

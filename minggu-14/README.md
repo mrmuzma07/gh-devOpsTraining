@@ -11,7 +11,7 @@ Di era cloud-native, mengonfigurasi server secara manual melalui klik-klik GUI a
 **Infrastructure as Code (IaC)** adalah praktik mengelola dan memprovisi infrastruktur IT (server, jaringan, storage, Kubernetes cluster) melalui file definisi kode yang *declarative*, terversi di Git, dan terotomatisasi.
 
 ### Kompetensi Utama yang Akan Anda Kuasai:
-1. **Konsep IaC & OpenTofu**: Memahami paradigma *Declarative vs Imperative*, perbedaan OpenTofu (Open Source MPLv2) vs Terraform (BUSL License), HCL Syntax, Provider, Resource, dan Variables.
+1. **Konsep IaC & OpenTofu (vSphere & Proxmox Providers)**: Memahami paradigma *Declarative vs Imperative*, HCL Syntax, Provider (`hashicorp/vsphere` untuk vCenter & `bpg/proxmox` untuk Proxmox VE), Resource, dan Variables.
 2. **State Management & Drift Detection**: Mengelola file status infrastruktur (`tofu.tfstate`), *Remote State Backend*, *State Locking*, serta mendeteksi dan memperbaiki **Infrastructure Drift** (perubahan manual tak terotorisasi pada infrastruktur).
 3. **Configuration Management dengan Ansible**: Menguasai konsep *Agentless Infrastructure Management*, Ansible Inventory, Playbook, Roles, Modules, dan sifat **Idempotency**.
 4. **End-to-End Hybrid Pipeline (OpenTofu + Ansible)**: Menggabungkan OpenTofu untuk memprovisi infrastruktur dasar dan merelay *Dynamic Inventory* ke Ansible untuk menginstal dan mengonfigurasi cluster k3s.
@@ -25,24 +25,24 @@ Berikut adalah alur kerja otomatisasi infrastruktur yang akan kita bangun:
 
 ```mermaid
 graph TD
-    subgraph Version Control System - Git
+    subgraph Version_Control_System_Git ["Version Control System - Git"]
         Dev[DevOps / SRE Engineer] -->|1. Git Push Code| GitRepo[Git Repository<br>tofu/ & ansible/]
     end
 
-    subgraph Phase 1: Infrastructure Provisioning - OpenTofu
+    subgraph Phase_1_Infrastructure_Provisioning_OpenTofu ["Phase 1: Infrastructure Provisioning - OpenTofu"]
         GitRepo -->|2. Tofu Init & Plan| TofuEngine[OpenTofu Engine]
         TofuEngine <-->|Read / Write State| StateFile[(tofu.tfstate Remote Backend)]
         TofuEngine -->|3. Provision Nodes| VirtualInfra[Target VMs / Docker Nodes]
         TofuEngine -->|4. Generate Dynamic Inventory| AnsibleInv[ansible_inventory.ini]
     end
 
-    subgraph Phase 2: Configuration Management - Ansible
+    subgraph Phase_2_Configuration_Management_Ansible ["Phase 2: Configuration Management - Ansible"]
         AnsibleInv -->|5. Read Target IPs| AnsibleEngine[Ansible Control Engine]
         AnsibleEngine -->|6. SSH Exec Playbook idempotently| VirtualInfra
         AnsibleEngine -->|7. Install & Configure| K3sCluster[k3s Cluster Operational]
     end
 
-    subgraph Continuous Enforcement - Drift Detection
+    subgraph Continuous_Enforcement_Drift_Detection ["Continuous Enforcement - Drift Detection"]
         Cron[Scheduled CI Job<br>Drift Check] -->|8. tofu plan -detailed-exitcode| DriftDetect{Drift Detected?}
         DriftDetect -->|Yes| Alert[Alert Discord: Manual Change Detected!]
         DriftDetect -->|No| OK[Infra Compliant ✅]
